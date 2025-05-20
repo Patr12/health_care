@@ -1,0 +1,87 @@
+name: health
+description: "A new Flutter project."
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # The following adds the Cupertino Icons font to your application.
+  cupertino_icons: ^1.0.8
+  provider: ^6.1.4
+  shared_preferences: ^2.5.3
+  file_picker: ^10.1.2
+  intl: ^0.20.2
+  rating_dialog: ^2.0.4
+  table_calendar: ^3.2.0
+  dio: ^5.8.0+1
+  http: ^0.13.6
+  lottie: ^3.0.0
+  sqflite: ^2.4.2
+  
+  # New Dependencies
+  url_launcher: ^6.2.5
+  flutter_animate: ^4.2.0
+  carousel_slider: ^4.0.0
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/
+    - assets/animated_logo.gif
+    - assets/home_banner.png
+    - assets/login.png
+    - assets/register.png
+    - assets/symptoms/fever.png
+    - assets/symptoms/cardiology.png
+    - assets/symptoms/cholesterol.png
+    - assets/symptoms/dental.png
+    - assets/symptoms/dermatology.png
+    - assets/symptoms/diabetes.png
+    - assets/symptoms/eyecare.png
+    - assets/symptoms/respirations.png
+    - assets/symptoms/stress.png
+    - assets/symptoms/virus.png
+    - assets/banner/1.jpg
+    - assets/banner/2.jpg
+    - assets/banner/3.jpg
+    - assets/credit_card.png
+    - assets/doctor_2.jpg
+    - assets/doctor_3.jpg
+    - assets/doctor_4.jpg
+    - assets/doctor_8.jpg
+    - assets/doctor_9.jpg
+    - assets/doctor.jpg
+    - assets/facebook.png
+    - assets/google.png
+    - assets/helapay.png
+    - assets/doctors/1699452369870.jpg
+    - assets/doctors/1699452555671.jpg
+    - assets/doctors/1699511685320.jpg
+    - assets/doctors/1699511685364.jpg
+    - assets/doctors/1699511685404.jpg
+    - assets/doctors/confident-doctor-looking-camera-holding-tablet-pc.jpg
+    - assets/doctors/confident-indian-doctor-adjusting-glasses-while-using-smartphone.jpg
+    - assets/doctors/content-successful-general-practitioner-lab-coat-holding-hands-hips.jpg
+    - assets/doctors/doctor_2.jpg
+    - assets/doctors/doctor_4.jpg
+    - assets/doctors/doctor_8.jpg
+    - assets/doctors/doctor_9.jpg
+    - assets/doctors/doctors-day-handsome-brunette-cute-guy-medical-gown-with-crossed-hands.jpg
+    - assets/doctors/general-practitioner-standing-arms-folded-medical-office.jpg
+    - assets/doctors/healthcare-workers-preventing-virus.jpg
+    - assets/doctors/healthcare-workers.jpg
+    - assets/doctors/lady doctor.jpg
+    - assets/doctors/portrait-mature-therapist.jpg
