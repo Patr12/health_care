@@ -3,17 +3,17 @@ import 'package:health/screens/loginPage.dart';
 import 'package:health/utils/config.dart';
 
 class AppDrawer extends StatelessWidget {
-
-  final String userName; 
-  final String profilePictureUrl; 
-  final Function() onProfilePressed; 
+  final String userName;
+  final String profilePictureUrl;
+  final Function() onProfilePressed;
   final Function() onLogoutPressed;
   final Function() onAppointmentPressed;
   final Function() onSymptomsPressed;
   final Function() onNotificationsPressed;
   final Function() onSettingsPressed;
 
-  const AppDrawer({super.key, 
+  const AppDrawer({
+    super.key,
     required this.userName,
     required this.profilePictureUrl,
     required this.onProfilePressed,
@@ -32,13 +32,11 @@ class AppDrawer extends StatelessWidget {
         children: <Widget>[
           UserAccountsDrawerHeader(
             accountName: Text(userName),
-            accountEmail: null, 
+            accountEmail: null,
             currentAccountPicture: CircleAvatar(
               backgroundImage: AssetImage(profilePictureUrl),
             ),
-            decoration: BoxDecoration(
-              color: Colors.blue,
-            ),
+            decoration: BoxDecoration(color: Colors.blue),
           ),
           ListTile(
             leading: Icon(Icons.person),
@@ -65,7 +63,7 @@ class AppDrawer extends StatelessWidget {
             title: Text('Settings'),
             onTap: onSettingsPressed,
           ),
-          Config.spaceMedium,    
+          Config.spaceMedium,
           ListTile(
             onTap: () async {
               showDialog(
@@ -80,10 +78,7 @@ class AppDrawer extends StatelessWidget {
                         onPressed: () {
                           Navigator.pop(context);
                         },
-                        icon: const Icon(
-                          Icons.cancel,
-                          color: Colors.red,
-                        ),
+                        icon: const Icon(Icons.cancel, color: Colors.red),
                       ),
                       IconButton(
                         onPressed: () async {
@@ -94,23 +89,19 @@ class AppDrawer extends StatelessWidget {
                             (route) => false,
                           );
                         },
-                        icon: const Icon(
-                          Icons.done,
-                          color: Colors.green,
-                        ),
+                        icon: const Icon(Icons.done, color: Colors.green),
                       ),
                     ],
                   );
                 },
               );
             },
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-            leading: const Icon(Icons.exit_to_app),
-            title: const Text(
-              "Logout",
-              style: TextStyle(color: Colors.black),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 5,
             ),
+            leading: const Icon(Icons.exit_to_app),
+            title: const Text("Logout", style: TextStyle(color: Colors.black)),
           ),
         ],
       ),

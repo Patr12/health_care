@@ -18,15 +18,14 @@ class SplashScreenState extends State<SplashScreen> {
   }
 
   void startSplashTimer() {
-    const splashDuration =
-        Duration(seconds: 3); 
+    const splashDuration = Duration(seconds: 3);
 
     Timer(splashDuration, () {
       SchedulerBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (BuildContext context) {
-              return LoginForm(); 
+              return LoginForm();
             },
           ),
         );
@@ -37,12 +36,11 @@ class SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color.fromRGBO(
-          209, 228, 230, 1), 
+      backgroundColor: Color.fromRGBO(209, 228, 230, 1),
       body: Center(
         child: Image.asset(
-          'assets/animated_logo.gif', 
-          fit: BoxFit.cover, 
+          "assets/animated_logo.gif",
+          fit: BoxFit.cover,
           width: MediaQuery.of(context).size.width,
           height: MediaQuery.of(context).size.height,
         ),
@@ -50,4 +48,3 @@ class SplashScreenState extends State<SplashScreen> {
     );
   }
 }
-

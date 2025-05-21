@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:health/data/database_helper.dart';
-import 'package:health/screens/home.dart';
+import 'package:health/screens/admin_dashboard.dart';
+import 'package:health/screens/doctor_dashboard.dart';
+import 'package:health/screens/patient_dashboard.dart';
 import 'package:health/screens/registerPage.dart';
-
 
 class LoginForm extends StatefulWidget {
   const LoginForm({super.key});
@@ -15,67 +16,79 @@ class _LoginFormState extends State<LoginForm> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _dbHelper = DatabaseHelper();
+  bool _isLoading = false;
 
-  void _login() async {
-    final email = _emailController.text;
-    final password = _passwordController.text;
-
-    final user = await _dbHelper.loginUser(email, password);
-    if (user != null) {
-      // Success snackbar
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: const [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  "Login successful!",
-                  style: TextStyle(fontSize: 16),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(10)),
-          ),
-          duration: Duration(seconds: 2),
-        ),
-      );
-
-      // Navigate to Home
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const NewHomePage(),),
-      );
-    } else {
-      // Error snackbar
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: const [
-              Icon(Icons.error_outline, color: Colors.white),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  "Invalid email or password.",
-                  style: TextStyle(fontSize: 16),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(10)),
-          ),
-          duration: Duration(seconds: 3),
-        ),
-      );
+  Future<void> _login() async {
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      _showSnackBar("Please enter both email and password", isError: true);
+      return;
     }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final user = await _dbHelper.loginUser(
+        _emailController.text,
+        _passwordController.text,
+      );
+
+      if (user != null) {
+        _showSnackBar("Login successful!");
+
+        // Determine dashboard based on role
+        Widget destination;
+        switch (user['role']) {
+          case DatabaseHelper.ROLE_ADMIN:
+            destination = const AdminDashboard();
+            break;
+          case DatabaseHelper.ROLE_DOCTOR:
+            destination = const DoctorDashboard();
+            break;
+          case DatabaseHelper.ROLE_PATIENT:
+          default:
+            destination = PatientDashboard();
+        }
+
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => destination),
+        );
+      } else {
+        _showSnackBar("Invalid email or password", isError: true);
+      }
+    } catch (e) {
+      _showSnackBar("Login failed: ${e.toString()}", isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isError ? Icons.error_outline : Icons.check_circle,
+              color: Colors.white,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(message, style: const TextStyle(fontSize: 16)),
+            ),
+          ],
+        ),
+        backgroundColor: isError ? Colors.redAccent : Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(10)),
+        ),
+        duration: Duration(seconds: isError ? 3 : 2),
+      ),
+    );
   }
 
   @override
@@ -88,7 +101,6 @@ class _LoginFormState extends State<LoginForm> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 📷 Added login image
               Center(
                 child: SizedBox(
                   height: 200,
@@ -99,20 +111,14 @@ class _LoginFormState extends State<LoginForm> {
               const Center(
                 child: Text(
                   "Welcome Back!",
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(height: 10),
               const Center(
                 child: Text(
                   "Login to continue",
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.grey,
-                  ),
+                  style: TextStyle(fontSize: 18, color: Colors.grey),
                 ),
               ),
               const SizedBox(height: 40),
@@ -143,19 +149,22 @@ class _LoginFormState extends State<LoginForm> {
               SizedBox(
                 width: double.infinity,
                 height: 50,
-                child: ElevatedButton(
-                  onPressed: _login,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: const Text(
-                    "Login",
-                    style: TextStyle(fontSize: 18),
-                  ),
-                ),
+                child:
+                    _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : ElevatedButton(
+                          onPressed: _login,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blueAccent,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: const Text(
+                            "Login",
+                            style: TextStyle(fontSize: 18),
+                          ),
+                        ),
               ),
               const SizedBox(height: 15),
               Center(
@@ -163,18 +172,17 @@ class _LoginFormState extends State<LoginForm> {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const RegisterPage()),
+                      MaterialPageRoute(
+                        builder: (context) => const RegisterPage(),
+                      ),
                     );
                   },
                   child: const Text(
                     "Don't have an account? Register",
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Colors.black87,
-                    ),
+                    style: TextStyle(fontSize: 15, color: Colors.black87),
                   ),
                 ),
-              )
+              ),
             ],
           ),
         ),

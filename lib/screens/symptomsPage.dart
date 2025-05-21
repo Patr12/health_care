@@ -1,22 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:health/components/customAppBar.dart';
 import 'package:health/screens/symptoms.dart';
-
 import '../utils/config.dart';
 
 class SymptomsPage extends StatefulWidget {
-  const SymptomsPage({super.key});
+  final String? selectedCategory; // Make it optional with null safety
+
+  const SymptomsPage({super.key, this.selectedCategory});
 
   @override
   State<SymptomsPage> createState() => _SymptomsPageState();
 }
 
 class _SymptomsPageState extends State<SymptomsPage> {
+  // List of all symptom categories
+  final List<Map<String, dynamic>> symptomCategories = [
+    {"image": 'assets/symptoms/fever.png', "name": "Fever"},
+    {"image": 'assets/symptoms/dental.png', "name": "Dental"},
+    {"image": 'assets/symptoms/eyecare.png', "name": "Eye Care"},
+    {"image": 'assets/symptoms/stress.png', "name": "Stress"},
+    {"image": 'assets/symptoms/cardiology.png', "name": "Cardiology"},
+    {"image": 'assets/symptoms/dermatology.png', "name": "Dermatology"},
+    {"image": 'assets/symptoms/respirations.png', "name": "Respirations"},
+    {"image": 'assets/symptoms/cholesterol.png', "name": "Cholesterol"},
+    {"image": 'assets/symptoms/diabetes.png', "name": "Diabetes"},
+    {"image": 'assets/symptoms/virus.png', "name": "Virus"},
+  ];
+
   @override
   Widget build(BuildContext context) {
+    // Highlight the selected category if one was passed
+    String? selected = widget.selectedCategory;
+
     return Scaffold(
       appBar: CustomAppBar(
-        appTitle: "Select Your Symptoms",
+        appTitle: selected != null 
+            ? "Symptoms for $selected" 
+            : "Select Your Symptoms",
         icon: const Icon(Icons.arrow_back_ios),
         actions: [
           IconButton(
@@ -28,346 +48,59 @@ class _SymptomsPageState extends State<SymptomsPage> {
           )
         ],
       ),
-      body: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),        
-        child: GestureDetector(
-          child: GridView.count(
-            crossAxisCount: 2, 
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            children: <Widget>[
-              Card(
-                elevation: 5,
-                color: Colors.white,
-                child: Column(
-                  children: [
-                    Flexible(
-                      child: Padding(
-                        padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: <Widget>[
-                            Image.asset(
-                              'assets/symptoms/fever.png',
-                              width: 80,
-                              height: 60,
-                            ),
-                            Config.spaceSmall,
-                            Text(
-                              "Fever",
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Card(
-                elevation: 5,
-                color: Colors.white,
-                child: Column(
-                  children: [
-                    Flexible(
-                      child: Padding(
-                        padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: <Widget>[
-                            Image.asset(
-                              'assets/symptoms/dental.png',
-                              width: 80,
-                              height: 60,
-                            ),
-                            Config.spaceSmall,
-                            Text(
-                              "Dental",
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Card(
-                elevation: 5,
-                color: Colors.white,
-                child: Column(
-                  children: [
-                    Flexible(
-                      child: Padding(
-                        padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: <Widget>[
-                            Image.asset(
-                              'assets/symptoms/cardiology.png',
-                              width: 80,
-                              height: 60,
-                            ),
-                            Config.spaceSmall,
-                            Text(
-                              "Cardiology",
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Card(
-                elevation: 5,
-                color: Colors.white,
-                child: Column(
-                  children: [
-                    Flexible(
-                      child: Padding(
-                        padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: <Widget>[
-                            Image.asset(
-                              'assets/symptoms/dermatology.png',
-                              width: 80,
-                              height: 60,
-                            ),
-                            Config.spaceSmall,
-                            Text(
-                              "Dermatology",
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Card(
-                elevation: 5,
-                color: Colors.white,
-                child: Column(
-                  children: [
-                    Flexible(
-                      child: Padding(
-                        padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: <Widget>[
-                            Image.asset(
-                              'assets/symptoms/cholesterol.png',
-                              width: 80,
-                              height: 60,
-                            ),
-                            Config.spaceSmall,
-                            Text(
-                              "Cholesterol",
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Card(
-                elevation: 5,
-                color: Colors.white,
-                child: Column(
-                  children: [
-                    Flexible(
-                      child: Padding(
-                        padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: <Widget>[
-                            Image.asset(
-                              'assets/symptoms/diabetes.png',
-                              width: 80,
-                              height: 60,
-                            ),
-                            Config.spaceSmall,
-                            Text(
-                              "Diabetes",
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Card(
-                elevation: 5,
-                color: Colors.white,
-                child: Column(
-                  children: [
-                    Flexible(
-                      child: Padding(
-                        padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: <Widget>[
-                            Image.asset(
-                              'assets/symptoms/respirations.png',
-                              width: 80,
-                              height: 60,
-                            ),
-                            Config.spaceSmall,
-                            Text(
-                              "Respirations",
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Card(
-                elevation: 5,
-                color: Colors.white,
-                child: Column(
-                  children: [
-                    Flexible(
-                      child: Padding(
-                        padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: <Widget>[
-                            Image.asset(
-                              'assets/symptoms/eyecare.png',
-                              width: 80,
-                              height: 60,
-                            ),
-                            Config.spaceSmall,
-                            Text(
-                              "Eye Care",
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Card(
-                elevation: 5,
-                color: Colors.white,
-                child: Column(
-                  children: [
-                    Flexible(
-                      child: Padding(
-                        padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: <Widget>[
-                            Image.asset(
-                              'assets/symptoms/stress.png',
-                              width: 80,
-                              height: 60,
-                            ),
-                            Config.spaceSmall,
-                            Text(
-                              "Stress",
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Card(
-                elevation: 5,
-                color: Colors.white,
-                child: Column(
-                  children: [
-                    Flexible(
-                      child: Padding(
-                        padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: <Widget>[
-                            Image.asset(
-                              'assets/symptoms/virus.png',
-                              width: 80,
-                              height: 60,
-                            ),
-                            Config.spaceSmall,
-                            Text(
-                              "Virus",
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),          
-          onTap: () {
-            String symptomName = "Fever"; 
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => Symptoms(symptomName: symptomName),
-              ),
-            );
-          },
+      body: GridView.builder(
+        padding: const EdgeInsets.all(10),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 0.9,
         ),
+        itemCount: symptomCategories.length,
+        itemBuilder: (context, index) {
+          final category = symptomCategories[index];
+          final isSelected = selected == category['name'];
+          
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => Symptoms(symptomName: category['name']),
+                ),
+              );
+            },
+            child: Card(
+              elevation: 5,
+              color: isSelected ? Colors.blue[50] : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: isSelected
+                    ? const BorderSide(color: Colors.blue, width: 2)
+                    : BorderSide.none,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Image.asset(
+                    category['image'],
+                    width: 80,
+                    height: 60,
+                  ),
+                  Config.spaceSmall,
+                  Text(
+                    category['name'],
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? Colors.blue : Colors.black,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
