@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:health/chart/message_chat_page.dart';
 import 'package:health/screens/appointments.dart';
-import 'package:health/screens/messages.dart';
 import 'package:health/screens/symptomsPage.dart';
-import 'package:health/screens/home.dart';
 
 
 class Layout extends StatefulWidget {
@@ -30,7 +29,7 @@ class LayoutState extends State<Layout> {
           //Home(),
           SymptomsPage(),
           Appointments(doctor: {},),          
-          Messages(),
+          MessageChatPage(currentUserId: '', currentUserName: '')
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(

@@ -14,3 +14,12 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+"Teknolojia kwa Ufanisi wa Leo na Kesho"
+
+"Tunabuni Mfumo, Wewe Unaongoza!"
+
+"Digitali Inayoendana na Ndoto Zako"
+
+"Fungua Milango ya Mafanikio kwa App Yako"
+
+"Smart Solutions for Smart Businesses"

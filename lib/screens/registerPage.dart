@@ -5,6 +5,7 @@ import 'package:health/screens/admin_dashboard.dart';
 import 'package:health/screens/loginPage.dart';
 import 'package:health/screens/patient_dashboard.dart';
 import 'package:health/utils/config.dart';
+import 'package:health/utils/text.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -39,7 +40,7 @@ class _RegisterPageState extends State<RegisterPage> {
         'password': passwordController.text,
         'phone_number': phoneController.text,
         'date_of_birth': '', // Add date picker later
-        'blood_type': '',    // Add dropdown later
+        'blood_type': '', // Add dropdown later
         'role': _selectedRole,
       };
 
@@ -66,7 +67,7 @@ class _RegisterPageState extends State<RegisterPage> {
       }
 
       if (!mounted) return;
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("✅ Registered successfully!")),
       );
@@ -89,12 +90,11 @@ class _RegisterPageState extends State<RegisterPage> {
         context,
         MaterialPageRoute(builder: (context) => destination),
       );
-
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("❌ Error: ${e.toString()}")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("❌ Error: ${e.toString()}")));
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -146,9 +146,8 @@ class _RegisterPageState extends State<RegisterPage> {
               labelText: 'License Number',
               prefixIcon: Icon(Icons.medical_services),
             ),
-            validator: (value) => value!.isEmpty 
-                ? 'License number is required' 
-                : null,
+            validator:
+                (value) => value!.isEmpty ? 'License number is required' : null,
             onChanged: (value) => _licenseNumber = value,
           ),
           const SizedBox(height: 16),
@@ -157,9 +156,8 @@ class _RegisterPageState extends State<RegisterPage> {
               labelText: 'Specialty',
               prefixIcon: Icon(Icons.work),
             ),
-            validator: (value) => value!.isEmpty 
-                ? 'Specialty is required' 
-                : null,
+            validator:
+                (value) => value!.isEmpty ? 'Specialty is required' : null,
             onChanged: (value) => _specialty = value,
           ),
         ],
@@ -171,10 +169,7 @@ class _RegisterPageState extends State<RegisterPage> {
   Widget build(BuildContext context) {
     Config().init(context);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Account'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Create Account'), centerTitle: true),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -183,11 +178,40 @@ class _RegisterPageState extends State<RegisterPage> {
             child: Column(
               children: [
                 const SizedBox(height: 20),
-                CircleAvatar(
-                  radius: 60,
-                  backgroundColor: Colors.grey[200],
-                  child: const Icon(Icons.person_add, size: 60),
+
+                Center(
+                  child: Text(
+                    AppText.enText['welcome_text']!,
+                    style: const TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
+                Center(
+                  child: SizedBox(
+                    width: 350,
+                    height: 100,
+                    child: Image.asset("assets/home_banner.png"),
+                  ),
+                ),
+                Center(
+                  child: SizedBox(
+                    width: 230,
+                    height: 280,
+                    child: Image.asset("assets/register.png"),
+                  ),
+                ),
+                Center(
+                  child: Text(
+                    AppText.enText['register_text']!,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Config.spaceSmall,
                 const SizedBox(height: 30),
                 _buildRoleSelector(),
                 const SizedBox(height: 20),
@@ -197,8 +221,8 @@ class _RegisterPageState extends State<RegisterPage> {
                     labelText: 'Full Name',
                     prefixIcon: Icon(Icons.person),
                   ),
-                  validator: (value) =>
-                      value!.isEmpty ? 'Name cannot be empty' : null,
+                  validator:
+                      (value) => value!.isEmpty ? 'Name cannot be empty' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -208,8 +232,9 @@ class _RegisterPageState extends State<RegisterPage> {
                     labelText: 'Email',
                     prefixIcon: Icon(Icons.email),
                   ),
-                  validator: (value) =>
-                      !value!.contains('@') ? 'Enter a valid email' : null,
+                  validator:
+                      (value) =>
+                          !value!.contains('@') ? 'Enter a valid email' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -219,8 +244,9 @@ class _RegisterPageState extends State<RegisterPage> {
                     labelText: 'Phone Number',
                     prefixIcon: Icon(Icons.phone),
                   ),
-                  validator: (value) =>
-                      value!.isEmpty ? 'Phone number is required' : null,
+                  validator:
+                      (value) =>
+                          value!.isEmpty ? 'Phone number is required' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -242,28 +268,31 @@ class _RegisterPageState extends State<RegisterPage> {
                       },
                     ),
                   ),
-                  validator: (value) => value!.length < 6
-                      ? 'Password must be at least 6 characters'
-                      : null,
+                  validator:
+                      (value) =>
+                          value!.length < 6
+                              ? 'Password must be at least 6 characters'
+                              : null,
                 ),
                 const SizedBox(height: 30),
                 SizedBox(
                   width: double.infinity,
                   height: 50,
-                  child: _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : ElevatedButton(
-                          onPressed: _register,
-                          style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                  child:
+                      _isLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : ElevatedButton(
+                            onPressed: _register,
+                            style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: const Text(
+                              "Register",
+                              style: TextStyle(fontSize: 18),
                             ),
                           ),
-                          child: const Text(
-                            "Register",
-                            style: TextStyle(fontSize: 18),
-                          ),
-                        ),
                 ),
                 const SizedBox(height: 20),
                 TextButton(

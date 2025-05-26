@@ -4,6 +4,8 @@ import 'package:health/screens/admin_dashboard.dart';
 import 'package:health/screens/doctor_dashboard.dart';
 import 'package:health/screens/patient_dashboard.dart';
 import 'package:health/screens/registerPage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert'; // For json encoding/decoding
 
 class LoginForm extends StatefulWidget {
   const LoginForm({super.key});
@@ -17,6 +19,14 @@ class _LoginFormState extends State<LoginForm> {
   final _passwordController = TextEditingController();
   final _dbHelper = DatabaseHelper();
   bool _isLoading = false;
+  bool _obscurePassword = true;
+
+  // Store user token and data in SharedPreferences
+  Future<void> _storeUserData(String token, Map<String, dynamic> user) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('auth_token', token);
+    await prefs.setString('user_data', json.encode(user));
+  }
 
   Future<void> _login() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
@@ -27,12 +37,19 @@ class _LoginFormState extends State<LoginForm> {
     setState(() => _isLoading = true);
 
     try {
+      // First try SQLite authentication
       final user = await _dbHelper.loginUser(
         _emailController.text,
         _passwordController.text,
       );
 
       if (user != null) {
+        // Generate a simple token (in real app, this would come from your API)
+        final token = 'sqlite_token_${DateTime.now().millisecondsSinceEpoch}';
+
+        // Store token and user data in SharedPreferences
+        await _storeUserData(token, user);
+
         _showSnackBar("Login successful!");
 
         // Determine dashboard based on role
@@ -83,9 +100,7 @@ class _LoginFormState extends State<LoginForm> {
         ),
         backgroundColor: isError ? Colors.redAccent : Colors.green,
         behavior: SnackBarBehavior.floating,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(10)),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         duration: Duration(seconds: isError ? 3 : 2),
       ),
     );
@@ -131,18 +146,34 @@ class _LoginFormState extends State<LoginForm> {
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
+                  filled: true,
+                  fillColor: Colors.grey[50],
                 ),
               ),
               const SizedBox(height: 20),
               TextField(
                 controller: _passwordController,
-                obscureText: true,
+                obscureText: _obscurePassword,
                 decoration: InputDecoration(
                   labelText: "Password",
                   prefixIcon: const Icon(Icons.lock),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
+                  filled: true,
+                  fillColor: Colors.grey[50],
                 ),
               ),
               const SizedBox(height: 30),
@@ -159,10 +190,15 @@ class _LoginFormState extends State<LoginForm> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
+                            elevation: 5,
                           ),
                           child: const Text(
                             "Login",
-                            style: TextStyle(fontSize: 18),
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
               ),
@@ -179,7 +215,11 @@ class _LoginFormState extends State<LoginForm> {
                   },
                   child: const Text(
                     "Don't have an account? Register",
-                    style: TextStyle(fontSize: 15, color: Colors.black87),
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.blueAccent,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),

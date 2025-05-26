@@ -3,196 +3,301 @@ import 'package:flutter/material.dart';
 import 'package:health/components/customAppBar.dart';
 import 'package:health/components/doctorCard.dart';
 import 'package:health/providers/dioProvider.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/config.dart';
 
 class Symptoms extends StatefulWidget {
   final String symptomName;
 
-  const Symptoms({
-    super.key,
-    required this.symptomName,
-  });
+  const Symptoms({super.key, required this.symptomName});
 
   @override
-  State<Symptoms> createState() => SymptomsState();
+  State<Symptoms> createState() => _SymptomsState();
 }
 
-class SymptomsState extends State<Symptoms> {
+class _SymptomsState extends State<Symptoms> {
   List<dynamic> filteredDoctors = [];
-  Map<String, dynamic> doctor = {};
   Map<String, dynamic> user = {};
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  Future<void> getData() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token') ?? '';
+  Future<void> _fetchUserData() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token') ?? '';
 
-    if (token.isNotEmpty && token != '') {
-      final response = await DioProvider().getUser(token);
-      if (response != null) {
+      if (token.isEmpty) {
         setState(() {
-          user = json.decode(response);
-          print(user);
+          _errorMessage = "No token found. Please log in.";
+          _isLoading = false;
         });
+        return;
       }
+
+      final response = await DioProvider().getUser(token);
+      if (response == null) {
+        setState(() {
+          _errorMessage = "Failed to fetch user data.";
+          _isLoading = false;
+        });
+        return;
+      }
+
+      setState(() {
+        user = json.decode(response);
+        _filterDoctors();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = "An error occurred: ${e.toString()}";
+        _isLoading = false;
+      });
     }
   }
 
-  // void filterDoctors() {
-  //   filteredDoctors = user['doctor']
-  //       .where((doctor) => doctor['category'] == widget.symptomName)
-  //       .toList();
-  // }
-
-  void filterDoctors() {
+  void _filterDoctors() {
     if (user['doctor'] != null) {
-      filteredDoctors = user['doctor']
-          .where((doctor) => doctor['category'] == widget.symptomName)
-          .toList();
+      filteredDoctors =
+          user['doctor']
+              .where((doctor) => doctor['category'] == widget.symptomName)
+              .toList();
     }
   }
-
-  // @override
-  // void initState() {
-  //   getData();
-  //   filterDoctors();
-  //   super.initState();
-  // }
 
   @override
   void initState() {
     super.initState();
-    getData().then((_) {
-      filterDoctors();
-    });
+    _fetchUserData();
   }
 
   @override
   void didUpdateWidget(covariant Symptoms oldWidget) {
     if (oldWidget.symptomName != widget.symptomName) {
-      filterDoctors();
+      _filterDoctors();
     }
     super.didUpdateWidget(oldWidget);
+  }
+
+  Widget _buildAdviceCard(String advice) {
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.medical_services, color: Colors.blue, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                advice,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdviceSection() {
+    final adviceMap = {
+      'Fever': [
+        "Measure your temperature regularly",
+        "Take Paracetamol as directed",
+        "Stay hydrated with plenty of fluids",
+        "Get adequate rest",
+        "Use cool compresses if needed",
+      ],
+      'Dental': [
+        "Rinse with warm salt water 2-3 times daily",
+        "Avoid extremely hot or cold foods",
+        "Use over-the-counter pain relievers",
+        "Apply clove oil for temporary relief",
+      ],
+    };
+
+    final adviceList =
+        adviceMap[widget.symptomName] ??
+        [
+          "Consult a healthcare professional for proper guidance",
+          "Follow your doctor's recommendations",
+          "Monitor your symptoms closely",
+        ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Column(
+            children: [
+              Text(
+                "Managing ${widget.symptomName}",
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                "Here are some recommendations to help you feel better:",
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        ...adviceList.map((advice) => _buildAdviceCard(advice)),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildDoctorHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            "Available Doctors",
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade800,
+            ),
+          ),
+          Chip(
+            label: Text(
+              "${filteredDoctors.length} found",
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.blue,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDoctorsList() {
+    if (_isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.red, size: 48),
+              const SizedBox(height: 16),
+              Text(
+                _errorMessage!,
+                style: const TextStyle(fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _fetchUserData,
+                child: const Text("Retry"),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (filteredDoctors.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.medical_services_outlined,
+                size: 48,
+                color: Colors.grey.shade400,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                "No specialists available for ${widget.symptomName}",
+                style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Check back later or try another symptom",
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        _buildDoctorHeader(),
+        ...filteredDoctors.map(
+          (doctor) => Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: DoctorCard(route: 'doctor', doctor: doctor),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     Config().init(context);
+
     return Scaffold(
+      backgroundColor: Colors.grey.shade50,
       appBar: CustomAppBar(
         appTitle: widget.symptomName,
         icon: const Icon(Icons.arrow_back_ios),
         actions: [
           IconButton(
-            onPressed: () async {},
-            icon: const Icon(
-              Icons.thermostat,
-              color: Colors.white,
-            ),
-          )
+            onPressed: () {
+              // TODO: Implement temperature action
+            },
+            icon: const Icon(Icons.thermostat, color: Colors.white),
+          ),
         ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
           child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Center(
-                    child: const Text(
-                      "If you have Fever,",
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(5),
-                  child: const Text(
-                    "                 Measure Your Temperature",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(5),
-                  child: const Text(
-                    "                 Take Paracetamol pills",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(5),
-                  child: const Text(
-                    "                 Take some rest",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Config.spaceSmall,
-                Text(
-                  "   Choose Your Doctor",
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                // Column(
-                //   children: List.generate(5, (index) {
-                //     return DoctorCard(route: '', doctor: {},);
-                //   }),
-                //   children: List.generate(user['doctor'].length, (index) {
-                //     return DoctorCard(
-                //       route: 'doctor',
-                //       doctor: user['doctor'][index],
-                //     );
-                //   }),
-                // )
-
-                if (user['doctor'] != null)
-                  Column(
-                    children: List.generate(user['doctor'].length, (index) {
-                      return DoctorCard(
-                        route: 'doctor',
-                        doctor: user['doctor'][index],
-                      );
-                    }),
-                  )
-
-                //if (filteredDoctors.isNotEmpty)
-
-                // if (filteredDoctors != null && filteredDoctors.isNotEmpty)
-
-                //   Column(
-                //     children: List.generate(filteredDoctors.length, (index) {
-                //       return DoctorCard(
-                //         route: 'doctor',
-                //         doctor: filteredDoctors[index],
-                //       );
-                //     }),
-                //   ),
-                // if (filteredDoctors.isEmpty)
-                //   Center(
-                //     child: Text(
-                //       "No doctors available for ${widget.symptomName}",
-                //       style: TextStyle(
-                //         fontSize: 16,
-                //         fontWeight: FontWeight.bold,
-                //       ),
-                //     ),
-                //   ),
-              ]),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildAdviceSection(),
+              _buildDoctorsList(),
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );

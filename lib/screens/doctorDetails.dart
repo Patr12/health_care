@@ -7,7 +7,7 @@ import 'package:health/utils/book_appointment_page.dart'; // Hakikisha hii ipo i
 class DoctorDetails extends StatefulWidget {
   final Map<String, dynamic> doctor;
 
-  const DoctorDetails({Key? key, required this.doctor}) : super(key: key);
+  const DoctorDetails({super.key, required this.doctor});
 
   @override
   State<DoctorDetails> createState() => _DoctorDetailsState();

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:health/chart/message_chat_page.dart';
 import 'package:health/components/appDrawer.dart';
 import 'package:health/components/customAppBar.dart';
 import 'package:health/data/database_helper.dart';
 import 'package:health/screens/appointments.dart';
 import 'package:health/screens/doctorDetails.dart';
-import 'package:health/screens/messages.dart';
 import 'package:health/screens/settings.dart';
 import 'package:health/screens/symptomsPage.dart';
 import 'package:health/screens/userDetails.dart';
@@ -112,7 +112,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
         onNotificationsPressed:
             () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const Messages()),
+              MaterialPageRoute(builder: (_) =>  MessageChatPage(currentUserId: '', currentUserName: '',)),
             ),
         onSettingsPressed:
             () => Navigator.push(
