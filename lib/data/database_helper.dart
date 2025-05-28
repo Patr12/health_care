@@ -1,5 +1,5 @@
-
 import 'package:health/models/message_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
@@ -74,11 +74,10 @@ class DatabaseHelper {
         phone_number TEXT,
         date_of_birth TEXT,
         blood_type TEXT,
-         gender TEXT,
-  
-  marital_status TEXT,
-  height REAL,
-  weight REAL
+        gender TEXT,  
+        marital_status TEXT,
+        height REAL,
+        weight REAL
         role TEXT DEFAULT '$ROLE_PATIENT', 
         is_verified INTEGER DEFAULT 0,  -- 0 = not verified, 1 = verified
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -263,6 +262,16 @@ class DatabaseHelper {
     );
   }
 
+  Future<Map<String, dynamic>?> getUserById(int userId) async {
+    final db = await database;
+    final result = await db.query(
+      'users',
+      where: 'id = ?',
+      whereArgs: [userId],
+    );
+    return result.isNotEmpty ? result.first : null;
+  }
+
   // ========== DOCTOR OPERATIONS ========== //
 
   Future<int> registerDoctor(
@@ -350,6 +359,40 @@ class DatabaseHelper {
     );
   }
 
+  Future<Map<String, dynamic>> getCurrentPatientUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getInt('userId');
+
+    if (userId == null) {
+      throw Exception('No patient user logged in');
+    }
+
+    final db = await database;
+    final result = await db.query(
+      'users',
+      where: 'id = ? AND role = ?',
+      whereArgs: [userId, ROLE_PATIENT],
+    );
+
+    if (result.isEmpty) {
+      throw Exception('Patient user not found');
+    }
+
+    return result.first;
+  }
+
+  Future<List<Map<String, dynamic>>> getPatientAppointments(
+    int patientId,
+  ) async {
+    final db = await database;
+    return await db.query(
+      'appointments',
+      where: 'patient_id = ?',
+      whereArgs: [patientId],
+      orderBy: 'appointment_date DESC',
+    );
+  }
+
   // ========== APPOINTMENT OPERATIONS ========== //
   Future<int> bookAppointment(Map<String, dynamic> appointmentData) async {
     final db = await database;
@@ -391,60 +434,69 @@ class DatabaseHelper {
     );
   }
 
-// ========== MESSAGE OPERATIONS ==========
+  // ========== MESSAGE OPERATIONS ==========
 
-Future<int> sendMessage(Map<String, dynamic> messageData) async {
-  final db = await database;
-  try {
-    return await db.insert('messages', messageData);
-  } catch (e) {
-    print('Error sending message: $e');
-    return -1;
+  Future<int> sendMessage(Map<String, dynamic> messageData) async {
+    final db = await database;
+    try {
+      return await db.insert('messages', messageData);
+    } catch (e) {
+      print('Error sending message: $e');
+      return -1;
+    }
   }
-}
 
-Future<List<Map<String, dynamic>>> getConversation(int user1Id, int user2Id) async {
-  final db = await database;
-  try {
-    return await db.query(
-      'messages',
-      where: '(sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)',
-      whereArgs: [user1Id, user2Id, user2Id, user1Id],
-      orderBy: 'sent_at',
-    );
-  } catch (e) {
-    print('Error getting conversation: $e');
-    return [];
+  Future<List<Map<String, dynamic>>> getConversation(
+    int user1Id,
+    int user2Id,
+  ) async {
+    final db = await database;
+    try {
+      return await db.query(
+        'messages',
+        where:
+            '(sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)',
+        whereArgs: [user1Id, user2Id, user2Id, user1Id],
+        orderBy: 'sent_at',
+      );
+    } catch (e) {
+      print('Error getting conversation: $e');
+      return [];
+    }
   }
-}
 
-// Add these to your DatabaseHelper class
+  // Add these to your DatabaseHelper class
 
-Future<int> insertMessage(Message message) async {
-  final db = await database;
-  return await db.insert('messages', message.toMap());
-}
-
-Future<List<Message>> getMessagesBetweenUsers(String user1Id, String user2Id) async {
-  final db = await database;
-  try {
-    final result = await db.query(
-      'messages',
-      where: '(sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)',
-      whereArgs: [user1Id, user2Id, user2Id, user1Id],
-      orderBy: 'timestamp ASC',
-    );
-    return Message.fromList(result);
-  } catch (e) {
-    print('Error getting messages: $e');
-    return [];
+  Future<int> insertMessage(Message message) async {
+    final db = await database;
+    return await db.insert('messages', message.toMap());
   }
-}
 
-Future<List<Object>> getConversationsForUser(int userId) async {
-  final db = await database;
-  try {
-    final result = await db.rawQuery('''
+  Future<List<Message>> getMessagesBetweenUsers(
+    String user1Id,
+    String user2Id,
+  ) async {
+    final db = await database;
+    try {
+      final result = await db.query(
+        'messages',
+        where:
+            '(sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)',
+        whereArgs: [user1Id, user2Id, user2Id, user1Id],
+        orderBy: 'timestamp ASC',
+      );
+      return Message.fromList(result);
+    } catch (e) {
+      print('Error getting messages: $e');
+      return [];
+    }
+  }
+
+  Future<List<Object>> getConversationsForUser(int userId) async {
+    final db = await database;
+    try {
+      final result = await db.rawQuery(
+        '''
       SELECT m.* FROM messages m
       INNER JOIN (
         SELECT MAX(id) as last_message_id
@@ -457,39 +509,38 @@ Future<List<Object>> getConversationsForUser(int userId) async {
           END
       ) lm ON m.id = lm.last_message_id
       ORDER BY m.sent_at DESC
-    ''', [userId, userId, userId]);
-    
-    return result.map((map) => Message.fromMap(map)).toList();
-  } catch (e) {
-    print('Error getting conversations for user: $e');
-    return [];
-  }
-}
+    ''',
+        [userId, userId, userId],
+      );
 
-Future<int> markMessagesAsRead(int senderId, int receiverId) async {
-  final db = await database;
-  try {
-    return await db.update(
-      'messages',
-      {'is_read': 1},
-      where: 'sender_id = ? AND receiver_id = ? AND is_read = 0',
-      whereArgs: [senderId, receiverId],
-    );
-  } catch (e) {
-    print('Error marking messages as read: $e');
-    return 0;
+      return result.map((map) => Message.fromMap(map)).toList();
+    } catch (e) {
+      print('Error getting conversations for user: $e');
+      return [];
+    }
   }
-}
+
+  Future<int> markMessagesAsRead(int senderId, int receiverId) async {
+    final db = await database;
+    try {
+      return await db.update(
+        'messages',
+        {'is_read': 1},
+        where: 'sender_id = ? AND receiver_id = ? AND is_read = 0',
+        whereArgs: [senderId, receiverId],
+      );
+    } catch (e) {
+      print('Error marking messages as read: $e');
+      return 0;
+    }
+  }
+
   Future<void> saveFcmToken(String userId, String token) async {
     final db = await database;
-    await db.insert(
-      'user_tokens',
-      {
-        'user_id': userId,
-        'token': token,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('user_tokens', {
+      'user_id': userId,
+      'token': token,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<String?> getFcmToken(String userId) async {
@@ -502,7 +553,6 @@ Future<int> markMessagesAsRead(int senderId, int receiverId) async {
     );
     return result.isEmpty ? null : result.first['token'] as String?;
   }
-
 
   // ========== HEALTH INFO OPERATIONS ========== //
   Future<int> updateHealthInfo(

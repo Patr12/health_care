@@ -20,8 +20,8 @@ class _CustomAppBarState extends State<CustomAppBar> {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      automaticallyImplyLeading: true,
-      backgroundColor: Colors.blue, //background color is white in this app
+      automaticallyImplyLeading: true, 
+      backgroundColor: Colors.blue, // background color is white in this app
       elevation: 0,
       title: Center(
         child: Text(

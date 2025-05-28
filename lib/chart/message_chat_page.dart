@@ -11,8 +11,8 @@ class MessageChatPage extends StatefulWidget {
   const MessageChatPage({
     required this.currentUserId,
     required this.currentUserName,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   _MessageChatPageState createState() => _MessageChatPageState();

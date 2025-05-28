@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:health/data/database_helper.dart';
 import 'package:health/screens/admin_dashboard.dart';
 import 'package:health/screens/doctor_dashboard.dart';
-import 'package:health/screens/patient_dashboard.dart';
+import 'package:health/screens/home_screen.dart';
 import 'package:health/screens/registerPage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert'; // For json encoding/decoding
@@ -28,6 +28,11 @@ class _LoginFormState extends State<LoginForm> {
     await prefs.setString('user_data', json.encode(user));
   }
 
+   Future<void> _storeUserId(int userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('userId', userId);
+  }
+
   Future<void> _login() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       _showSnackBar("Please enter both email and password", isError: true);
@@ -37,18 +42,14 @@ class _LoginFormState extends State<LoginForm> {
     setState(() => _isLoading = true);
 
     try {
-      // First try SQLite authentication
       final user = await _dbHelper.loginUser(
         _emailController.text,
         _passwordController.text,
       );
 
       if (user != null) {
-        // Generate a simple token (in real app, this would come from your API)
-        final token = 'sqlite_token_${DateTime.now().millisecondsSinceEpoch}';
-
-        // Store token and user data in SharedPreferences
-        await _storeUserData(token, user);
+        // Store the user ID
+        await _storeUserId(user['id']);
 
         _showSnackBar("Login successful!");
 
@@ -63,7 +64,7 @@ class _LoginFormState extends State<LoginForm> {
             break;
           case DatabaseHelper.ROLE_PATIENT:
           default:
-            destination = PatientDashboard();
+            destination = const HomeScreen();
         }
 
         if (!mounted) return;

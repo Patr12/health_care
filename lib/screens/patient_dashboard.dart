@@ -9,6 +9,7 @@ import 'package:health/screens/settings.dart';
 import 'package:health/screens/symptomsPage.dart';
 import 'package:health/screens/userDetails.dart';
 import 'package:health/utils/config.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PatientDashboard extends StatefulWidget {
   const PatientDashboard({super.key});
@@ -22,15 +23,56 @@ class _PatientDashboardState extends State<PatientDashboard> {
   List<Map<String, dynamic>> doctors = [];
   List<Map<String, dynamic>> appointments = [];
   bool _isLoading = true;
-  String _userName = "User";
+  String? _userName;
   String _profilePictureUrl = '';
   String _searchQuery = '';
   int? _userId;
+  final DatabaseHelper dbHelper = DatabaseHelper();
+  late Future<Map<String, dynamic>?> userFuture;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    userFuture = _loadUserData();
+    _loadPatientData();
+  }
+
+  Future<Map<String, dynamic>?> _loadUserData() async {
+    return await dbHelper.getUserById(_userId!);
+  }
+
+  Future<void> _loadPatientData() async {
+    try {
+      // Get current patient user (not admin)
+      final patient = await DatabaseHelper().getCurrentPatientUser();
+
+      // Load patient-specific data
+      final doctorsData = await DatabaseHelper().getDoctors();
+      final appointmentsData = await DatabaseHelper().getPatientAppointments(
+        patient['id'],
+      );
+
+      if (mounted) {
+        setState(() {
+          _userName = patient['full_name'];
+          _profilePictureUrl = patient['image'] ?? '';
+          doctors = doctorsData;
+          appointments = appointmentsData;
+          _isLoading = false;
+          _userId = patient['id'];
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error loading patient data: ${e.toString()}"),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _loadData() async {
@@ -43,7 +85,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
       if (mounted) {
         setState(() {
-          _userName = user['full_name'] ?? "User";
+          _userName = user['full_name'];
           _profilePictureUrl = user['image'] ?? '';
           doctors = doctorsData;
           appointments = appointmentsData;
@@ -88,7 +130,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
         ],
       ),
       drawer: AppDrawer(
-        userName: _userName,
+        userName: _userName!,
         profilePictureUrl: _profilePictureUrl,
         onProfilePressed: () {
           if (_userId != null) {
@@ -98,7 +140,6 @@ class _PatientDashboardState extends State<PatientDashboard> {
             );
           }
         },
-
         onAppointmentPressed:
             () => Navigator.push(
               context,
@@ -112,7 +153,13 @@ class _PatientDashboardState extends State<PatientDashboard> {
         onNotificationsPressed:
             () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) =>  MessageChatPage(currentUserId: '', currentUserName: '',)),
+              MaterialPageRoute(
+                builder:
+                    (_) => const MessageChatPage(
+                      currentUserId: '',
+                      currentUserName: '',
+                    ),
+              ),
             ),
         onSettingsPressed:
             () => Navigator.push(
@@ -124,69 +171,99 @@ class _PatientDashboardState extends State<PatientDashboard> {
       body:
           _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    // Search Bar
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16.0),
-                      child: TextField(
-                        decoration: InputDecoration(
-                          hintText: 'Search doctors...',
-                          prefixIcon: const Icon(Icons.search),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        onChanged:
-                            (value) => setState(() => _searchQuery = value),
-                      ),
-                    ),
-                    // Banner Section
-                    SizedBox(
-                      height: 150,
-                      child: PageView.builder(
-                        itemCount: bannerImages.length,
-                        onPageChanged:
-                            (index) => setState(() => _currentPage = index),
-                        itemBuilder:
-                            (context, index) => Image.asset(
-                              bannerImages[index],
-                              fit: BoxFit.cover,
+              : LayoutBuilder(
+                builder: (context, constraints) {
+                  final isPortrait =
+                      constraints.maxHeight > constraints.maxWidth;
+
+                  return SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 16.0),
+                            child: TextField(
+                              decoration: InputDecoration(
+                                hintText: 'Search doctors...',
+                                prefixIcon: const Icon(Icons.search),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              onChanged:
+                                  (value) =>
+                                      setState(() => _searchQuery = value),
                             ),
-                      ),
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(
-                        bannerImages.length,
-                        (index) => Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 5),
-                          width: 10,
-                          height: 10,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color:
-                                _currentPage == index
-                                    ? Colors.blue
-                                    : Colors.grey.withOpacity(0.5),
                           ),
-                        ),
+                          SizedBox(
+                            height: isPortrait ? 150 : 100,
+                            child: PageView.builder(
+                              itemCount: bannerImages.length,
+                              onPageChanged:
+                                  (index) =>
+                                      setState(() => _currentPage = index),
+                              itemBuilder:
+                                  (context, index) => Image.asset(
+                                    bannerImages[index],
+                                    fit: BoxFit.cover,
+                                  ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(
+                                bannerImages.length,
+                                (index) => Container(
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                  ),
+                                  width: 10,
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color:
+                                        _currentPage == index
+                                            ? Colors.blue
+                                            : Colors.grey.withOpacity(0.5),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Config.spaceMedium,
+                          isPortrait
+                              ? _buildPortraitLayout()
+                              : _buildLandscapeLayout(),
+                        ],
                       ),
                     ),
-
-                    Config.spaceMedium,
-                    // Upcoming Appointments
-                    _buildAppointmentsSection(),
-
-                    const SizedBox(height: 20),
-
-                    // Available Doctors
-                    _buildDoctorsSection(),
-                  ],
-                ),
+                  );
+                },
               ),
+    );
+  }
+
+  Widget _buildPortraitLayout() {
+    return Column(
+      children: [
+        _buildAppointmentsSection(),
+        const SizedBox(height: 20),
+        _buildDoctorsSection(),
+      ],
+    );
+  }
+
+  Widget _buildLandscapeLayout() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(flex: 1, child: _buildAppointmentsSection()),
+        const SizedBox(width: 20),
+        Expanded(flex: 2, child: _buildDoctorsSection()),
+      ],
     );
   }
 
@@ -213,40 +290,47 @@ class _PatientDashboardState extends State<PatientDashboard> {
                 itemCount: appointments.length,
                 itemBuilder: (context, index) {
                   final appointment = appointments[index];
-                  return Card(
-                    margin: const EdgeInsets.only(right: 10),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Dr. ${appointment['doctor_name'] ?? 'Unknown'}",
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 5),
-                          Text("Date: ${appointment['appointment_date']}"),
-                          Text("Time: ${appointment['appointment_time']}"),
-                          const SizedBox(height: 5),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _getStatusColor(
-                                appointment['status'],
-                              ).withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              appointment['status'] ?? 'Pending',
-                              style: TextStyle(
-                                color: _getStatusColor(appointment['status']),
+                  return ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: MediaQuery.of(context).size.width * 0.7,
+                    ),
+                    child: Card(
+                      margin: const EdgeInsets.only(right: 10),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              " ${appointment['doctor_name'] ?? 'Unknown'}",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 5),
+                            Text("Date: ${appointment['appointment_date']}"),
+                            Text("Time: ${appointment['appointment_time']}"),
+                            const SizedBox(height: 5),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _getStatusColor(
+                                  appointment['status'],
+                                ).withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                appointment['status'] ?? 'Pending',
+                                style: TextStyle(
+                                  color: _getStatusColor(appointment['status']),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -258,117 +342,101 @@ class _PatientDashboardState extends State<PatientDashboard> {
   }
 
   Widget _buildDoctorsSection() {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Available Doctors",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-          _filteredDoctors.isEmpty
-              ? const Center(child: Text("No doctors found"))
-              : Expanded(
-                child: ListView.builder(
-                  itemCount: _filteredDoctors.length,
-                  itemBuilder: (context, index) {
-                    final doctor = _filteredDoctors[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      child: ListTile(
-                        leading: _buildDoctorImage(doctor['image']),
-                        title: Text(
-                          "Dr. ${doctor['full_name'] ?? 'Unknown'}",
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(doctor['specialty'] ?? 'General Practitioner'),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                const Icon(Icons.medical_services, size: 16),
-                                const SizedBox(width: 4),
-                                Text(doctor['hospital'] ?? 'Clinic'),
-                              ],
-                            ),
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.star,
-                                  color: Colors.amber,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  "${doctor['rating'] ?? '5.0'} (${doctor['experience_years'] ?? '0'} yrs exp)",
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        trailing: const Icon(Icons.arrow_forward_ios),
-                        onTap: () {
-                          Navigator.push(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Available Doctors",
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 10),
+        _filteredDoctors.isEmpty
+            ? const Center(child: Text("No doctors found"))
+            : ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.5,
+              ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _filteredDoctors.length,
+                itemBuilder: (context, index) {
+                  final doctor = _filteredDoctors[index];
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    child: ListTile(
+                      leading: _buildDoctorImage(doctor['image']),
+                      title: Text(
+                        "Dr. ${doctor['full_name'] ?? 'Unknown'}",
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(doctor['specialty'] ?? 'General Practitioner'),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(Icons.medical_services, size: 16),
+                              const SizedBox(width: 4),
+                              Text(doctor['hospital'] ?? 'Clinic'),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.star,
+                                color: Colors.amber,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 4),
+                              Text("${doctor['rating'] ?? '0.0'}"),
+                            ],
+                          ),
+                        ],
+                      ),
+                      onTap:
+                          () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder:
-                                  (context) => DoctorDetails(doctor: doctor),
+                              builder: (_) => DoctorDetails(doctor: doctor),
                             ),
-                          );
-                        },
-                      ),
-                    );
-                  },
-                ),
+                          ),
+                    ),
+                  );
+                },
               ),
-        ],
-      ),
+            ),
+      ],
     );
   }
 
-  Widget _buildDoctorImage(String? imagePath) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        width: 50,
-        height: 50,
-        color: Colors.grey[200],
-        child:
-            imagePath != null && imagePath.isNotEmpty
-                ? Image.asset(
-                  imagePath,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _buildDefaultDoctorIcon(),
-                )
-                : _buildDefaultDoctorIcon(),
-      ),
-    );
-  }
-
-  Widget _buildDefaultDoctorIcon() {
-    return const Center(
-      child: Icon(Icons.person, size: 30, color: Colors.grey),
+  Widget _buildDoctorImage(String? imageUrl) {
+    return CircleAvatar(
+      radius: 25,
+      backgroundImage:
+          imageUrl != null && imageUrl.isNotEmpty
+              ? NetworkImage(imageUrl)
+              : const AssetImage('assets/doctor_2.jpg') as ImageProvider,
     );
   }
 
   Color _getStatusColor(String? status) {
     switch (status?.toLowerCase()) {
-      case 'confirmed':
+      case 'approved':
         return Colors.green;
-      case 'completed':
-        return Colors.blue;
+      case 'pending':
+        return Colors.orange;
       case 'cancelled':
         return Colors.red;
       default:
-        return Colors.orange;
+        return Colors.grey;
     }
   }
 
   Future<void> _logout() async {
-    // Implement your logout logic here
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('userId');
+    if (!mounted) return;
     Navigator.pushReplacementNamed(context, '/login');
   }
 }
