@@ -39,6 +39,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
   }
 
   Future<Map<String, dynamic>?> _loadUserData() async {
+    if (_userId == null) return null;
     return await dbHelper.getUserById(_userId!);
   }
 
@@ -60,6 +61,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
           doctors = doctorsData;
           appointments = appointmentsData;
           _isLoading = false;
+          userFuture = _loadUserData(); // Initialize after _userId is set
           _userId = patient['id'];
         });
       }
@@ -124,13 +126,13 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
     return Scaffold(
       appBar: CustomAppBar(
-        appTitle: "Welcome, $_userName!",
+        appTitle: "Welcome, ${_userName ?? 'User'}!",
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
         ],
       ),
       drawer: AppDrawer(
-        userName: _userName!,
+        userName: _userName ?? 'user',
         profilePictureUrl: _profilePictureUrl,
         onProfilePressed: () {
           if (_userId != null) {

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:health/data/database_helper.dart';
 import 'package:health/screens/doctor_dashboard.dart';
 import 'package:health/screens/admin_dashboard.dart';
+import 'package:health/screens/home_screen.dart';
 import 'package:health/screens/loginPage.dart';
-import 'package:health/screens/patient_dashboard.dart';
 import 'package:health/utils/config.dart';
 import 'package:health/utils/text.dart';
 
@@ -83,7 +83,7 @@ class _RegisterPageState extends State<RegisterPage> {
           break;
         case DatabaseHelper.ROLE_PATIENT:
         default:
-          destination = PatientDashboard();
+          destination = HomeScreen();
       }
 
       Navigator.pushReplacement(

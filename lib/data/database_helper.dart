@@ -77,7 +77,7 @@ class DatabaseHelper {
         gender TEXT,  
         marital_status TEXT,
         height REAL,
-        weight REAL
+        weight REAL,
         role TEXT DEFAULT '$ROLE_PATIENT', 
         is_verified INTEGER DEFAULT 0,  -- 0 = not verified, 1 = verified
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -97,6 +97,8 @@ class DatabaseHelper {
         experience_years INTEGER,
         rating REAL DEFAULT 0.0,
         consultation_fee REAL,
+        available_for_video INTEGER DEFAULT 1, -- 0 = no, 1 = yes
+      available_for_sms INTEGER DEFAULT 1,   -- 0 = no, 1 = yes
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       )
     ''');
@@ -271,6 +273,15 @@ class DatabaseHelper {
     );
     return result.isNotEmpty ? result.first : null;
   }
+  Future<bool> checkUserExists(String email) async {
+  final db = await database;
+  final result = await db.query(
+    'users',
+    where: 'email = ?',
+    whereArgs: [email],
+  );
+  return result.isNotEmpty;
+}
 
   // ========== DOCTOR OPERATIONS ========== //
 
@@ -318,6 +329,33 @@ class DatabaseHelper {
       [userId, ROLE_DOCTOR],
     );
     return result.isNotEmpty ? result.first : null;
+  }
+
+ Future<List<Map<String, dynamic>>> getAvailableDoctors(String communicationType) async {
+  final db = await database;
+  return await db.rawQuery(
+    '''
+    SELECT u.id, u.full_name, u.phone_number, d.specialty, d.hospital, 
+           d.experience_years, d.available_for_video, d.available_for_sms
+    FROM users u
+    JOIN doctor_profiles d ON u.id = d.user_id
+    WHERE u.role = ? 
+      AND (d.available_for_${communicationType} = 1)
+      AND u.is_verified = 1
+    ''',
+    [ROLE_DOCTOR],
+  );
+}
+
+  Future<String?> getDoctorPhoneNumber(int doctorId) async {
+    final db = await database;
+    final result = await db.query(
+      'users',
+      columns: ['phone_number'],
+      where: 'id = ?',
+      whereArgs: [doctorId],
+    );
+    return result.isNotEmpty ? result.first['phone_number'] as String? : null;
   }
 
   // ========== ADMIN OPERATIONS ========== //

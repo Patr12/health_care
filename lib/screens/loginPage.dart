@@ -4,8 +4,9 @@ import 'package:health/screens/admin_dashboard.dart';
 import 'package:health/screens/doctor_dashboard.dart';
 import 'package:health/screens/home_screen.dart';
 import 'package:health/screens/registerPage.dart';
+import 'package:health/utils/forgot_password_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert'; // For json encoding/decoding
+// For json encoding/decoding
 
 class LoginForm extends StatefulWidget {
   const LoginForm({super.key});
@@ -22,11 +23,7 @@ class _LoginFormState extends State<LoginForm> {
   bool _obscurePassword = true;
 
   // Store user token and data in SharedPreferences
-  Future<void> _storeUserData(String token, Map<String, dynamic> user) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('auth_token', token);
-    await prefs.setString('user_data', json.encode(user));
-  }
+ 
 
    Future<void> _storeUserId(int userId) async {
     final prefs = await SharedPreferences.getInstance();
@@ -203,6 +200,26 @@ class _LoginFormState extends State<LoginForm> {
                           ),
                         ),
               ),
+              // In your LoginForm build method, add this after the register button:
+Center(
+  child: TextButton(
+    onPressed: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const ForgotPasswordPage(),
+        ),
+      );
+    },
+    child: const Text(
+      "Forgot Password?",
+      style: TextStyle(
+        fontSize: 15,
+        color: Colors.blueAccent,
+      ),
+    ),
+  ),
+),
               const SizedBox(height: 15),
               Center(
                 child: TextButton(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:health/widget/emergence_call_widget.dart';
 
 class ClinicPage extends StatefulWidget {
   const ClinicPage({super.key});
@@ -62,9 +63,6 @@ class _ClinicPageState extends State<ClinicPage> {
               background: Image.asset(
                 'assets/home_banner.png',
                 fit: BoxFit.cover,
-                color: Colors.black.withOpacity(0.4),
-              
-                colorBlendMode: BlendMode.colorBurn,
               ),
             ),
             actions: [
@@ -95,7 +93,7 @@ class _ClinicPageState extends State<ClinicPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Karibu kwenye  Afya Bora! App',
+                        'Karibu kwenye Afya Bora! App',
                         style: Theme.of(
                           context,
                         ).textTheme.headlineSmall?.copyWith(
@@ -122,7 +120,10 @@ class _ClinicPageState extends State<ClinicPage> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
-                          onPressed: () {},
+                          onPressed: () {
+                            // Navigate to registration page
+                            Navigator.pushNamed(context, '/register');
+                          },
                           child: const Text(
                             'Anza Sasa',
                             style: TextStyle(fontSize: 16),
@@ -157,6 +158,11 @@ class _ClinicPageState extends State<ClinicPage> {
                       Icons.healing,
                       Colors.blue.shade100,
                       Colors.blue,
+                      onTap:
+                          () => Navigator.pushNamed(
+                            context,
+                            '/disease_prediction',
+                          ),
                     ),
                     _serviceCard(
                       context,
@@ -164,6 +170,11 @@ class _ClinicPageState extends State<ClinicPage> {
                       Icons.local_hospital,
                       Colors.green.shade100,
                       Colors.green,
+                      onTap:
+                          () => Navigator.pushNamed(
+                            context,
+                            '/clinic_registration',
+                          ),
                     ),
                     _serviceCard(
                       context,
@@ -171,6 +182,8 @@ class _ClinicPageState extends State<ClinicPage> {
                       Icons.health_and_safety,
                       Colors.orange.shade100,
                       Colors.orange,
+                      onTap:
+                          () => Navigator.pushNamed(context, '/health_advice'),
                     ),
                     _serviceCard(
                       context,
@@ -178,6 +191,8 @@ class _ClinicPageState extends State<ClinicPage> {
                       Icons.video_call,
                       Colors.purple.shade100,
                       Colors.purple,
+                      onTap:
+                          () => Navigator.pushNamed(context, '/online_doctor'),
                     ),
                   ],
                 ),
@@ -194,7 +209,12 @@ class _ClinicPageState extends State<ClinicPage> {
                         color: Colors.teal.shade800,
                       ),
                     ),
-                    TextButton(onPressed: () {}, child: const Text('Ona Zote')),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/all_health_tips');
+                      },
+                      child: const Text('Ona Zote'),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -243,7 +263,15 @@ class _ClinicPageState extends State<ClinicPage> {
                             side: BorderSide(color: Colors.red.shade700),
                             padding: const EdgeInsets.symmetric(vertical: 15),
                           ),
-                          onPressed: () {},
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EmergencyCallWidget(),
+                              ),
+                            );
+                            // Implement emergency call functionality
+                          },
                         ),
                       ),
                     ],
@@ -262,14 +290,15 @@ class _ClinicPageState extends State<ClinicPage> {
     String title,
     IconData icon,
     Color bgColor,
-    Color iconColor,
-  ) {
+    Color iconColor, {
+    required VoidCallback onTap,
+  }) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       child: InkWell(
         borderRadius: BorderRadius.circular(15),
-        onTap: () {},
+        onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(15),
           child: Column(
@@ -315,7 +344,7 @@ class _ClinicPageState extends State<ClinicPage> {
                 shape: BoxShape.circle,
               ),
               child: Text(
-                tip['icon'] ?? '💡', // Provide a fallback if 'icon' is null
+                tip['icon'] ?? '💡',
                 style: const TextStyle(fontSize: 24),
               ),
             ),
@@ -325,8 +354,7 @@ class _ClinicPageState extends State<ClinicPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    tip['title'] ??
-                        'No Title', // Provide a fallback if 'title' is null
+                    tip['title'] ?? 'No Title',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -334,8 +362,7 @@ class _ClinicPageState extends State<ClinicPage> {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    tip['tip'] ??
-                        'No Tip', // Provide a fallback if 'tip' is null
+                    tip['tip'] ?? 'No Tip',
                     style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
                   ),
                 ],

@@ -24,9 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeUserData();
-    });
+    _initializeUserData();
   }
 
   Future<void> _initializeUserData() async {
@@ -79,10 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
       const ClinicPage(),
       const SymptomsPage(),
       if (loggedInUserId != null)
-        ProfilePage(
-          userId: loggedInUserId!,
-          onLogout: _logout, // Pass logout function to profile page
-        )
+        ProfilePage(userId: loggedInUserId!, onLogout: _logout)
       else
         _buildLoginRequiredView(),
     ];
@@ -131,7 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  List<BottomNavigationBarItem> get _navItems => const [
+  List<BottomNavigationBarItem> get _navItems => [
     BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
     BottomNavigationBarItem(icon: Icon(Icons.local_hospital), label: 'Clinic'),
     BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
@@ -141,14 +136,19 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _selectedIndex, children: _pages),
+      body: SafeArea(
+        child: IndexedStack(index: _selectedIndex, children: _pages),
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onTabTapped,
         items: _navItems,
-        selectedItemColor: Colors.green.shade800,
+        selectedItemColor: Colors.blue, // Changed for visibility
         unselectedItemColor: Colors.grey,
+        showSelectedLabels: true,
+        showUnselectedLabels: true,
         type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white, // Explicit background
       ),
     );
   }
