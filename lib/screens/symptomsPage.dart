@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:health/components/customAppBar.dart';
 import 'package:health/screens/symptoms.dart';
-import '../utils/config.dart';
 
 class SymptomsPage extends StatefulWidget {
-  final String? selectedCategory; // Nullable for optional selection
+  final String? selectedCategory;
 
   const SymptomsPage({super.key, this.selectedCategory});
 
@@ -13,119 +11,170 @@ class SymptomsPage extends StatefulWidget {
 }
 
 class _SymptomsPageState extends State<SymptomsPage> {
-  // Moved outside build() to avoid rebuilds
-  static const List<Map<String, dynamic>> _symptomCategories = [
-    {"image": 'assets/symptoms/fever.png', "name": "Fever"},
-    {"image": 'assets/symptoms/dental.png', "name": "Dental"},
-    {"image": 'assets/symptoms/eyecare.png', "name": "Eye Care"},
-    {"image": 'assets/symptoms/stress.png', "name": "Stress"},
-    {"image": 'assets/symptoms/cardiology.png', "name": "Cardiology"},
-    {"image": 'assets/symptoms/dermatology.png', "name": "Dermatology"},
-    {"image": 'assets/symptoms/respirations.png', "name": "Respirations"},
-    {"image": 'assets/symptoms/cholesterol.png', "name": "Cholesterol"},
-    {"image": 'assets/symptoms/diabetes.png', "name": "Diabetes"},
-    {"image": 'assets/symptoms/virus.png', "name": "Virus"},
+  // Constants should be in uppercase (Dart convention)
+  static const List<Map<String, dynamic>> SYMPTOM_CATEGORIES = [
+    {
+      "image": 'assets/symptoms/fever.png',
+      "name": "Fever",
+      "color": Colors.red,
+    },
+    {
+      "image": 'assets/symptoms/dental.png',
+      "name": "Dental",
+      "color": Colors.teal,
+    },
+    {
+      "image": 'assets/symptoms/eyecare.png',
+      "name": "Eye Care",
+      "color": Colors.blue,
+    },
+    {
+      "image": 'assets/symptoms/stress.png',
+      "name": "Stress",
+      "color": Colors.purple,
+    },
+    {
+      "image": 'assets/symptoms/cardiology.png',
+      "name": "Cardiology",
+      "color": Colors.redAccent,
+    },
+    {
+      "image": 'assets/symptoms/dermatology.png',
+      "name": "Dermatology",
+      "color": Colors.orange,
+    },
+    {
+      "image": 'assets/symptoms/respirations.png',
+      "name": "Respirations",
+      "color": Colors.green,
+    },
+    {
+      "image": 'assets/symptoms/cholesterol.png',
+      "name": "Cholesterol",
+      "color": Colors.amber,
+    },
+    {
+      "image": 'assets/symptoms/diabetes.png',
+      "name": "Diabetes",
+      "color": Colors.blueGrey,
+    },
+    {
+      "image": 'assets/symptoms/virus.png',
+      "name": "Virus",
+      "color": Colors.deepOrange,
+    },
   ];
 
   @override
   Widget build(BuildContext context) {
-    final selectedCategory = widget.selectedCategory;
+    Theme.of(context);
+    final isLargeScreen = MediaQuery.of(context).size.width > 600;
 
     return Scaffold(
-      appBar: CustomAppBar(
-        appTitle: selectedCategory != null 
-            ? "Symptoms for $selectedCategory" 
-            : "Select Your Symptoms",
-        icon: const Icon(Icons.arrow_back_ios),
-        actions: [
-          IconButton(
-            onPressed: () async {
-              // TODO: Implement favorite action
-            },
-            icon: const Icon(
-              Icons.favorite_border_outlined,
-              color: Colors.blue,
-            ),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text("Check Symptoms"), elevation: 0),
       body: Padding(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(16.0),
         child: GridView.builder(
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: isLargeScreen ? 4 : 2,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
             childAspectRatio: 0.9,
           ),
-          itemCount: _symptomCategories.length,
+          itemCount: SYMPTOM_CATEGORIES.length,
           itemBuilder: (context, index) {
-            final category = _symptomCategories[index];
-            final isSelected = selectedCategory == category['name'];
+            final category = SYMPTOM_CATEGORIES[index];
+            final isSelected = widget.selectedCategory == category['name'];
+            final categoryColor = category['color'] as Color;
 
-            return _SymptomCategoryCard(
+            return SymptomCategoryCard(
               category: category,
               isSelected: isSelected,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => Symptoms(symptomName: category['name']),
-                  ),
-                );
-              },
+              categoryColor: categoryColor,
+              onTap: () => _navigateToSymptoms(context, category['name']),
             );
           },
         ),
       ),
     );
   }
+
+  void _navigateToSymptoms(BuildContext context, String symptomName) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 500),
+        pageBuilder: (_, __, ___) => Symptoms(symptomName: symptomName),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+  }
 }
 
-// Extracted as a separate widget for better performance (optional but recommended)
-class _SymptomCategoryCard extends StatelessWidget {
+class SymptomCategoryCard extends StatelessWidget {
   final Map<String, dynamic> category;
   final bool isSelected;
+  final Color categoryColor;
   final VoidCallback onTap;
 
-  const _SymptomCategoryCard({
+  const SymptomCategoryCard({
+    super.key,
     required this.category,
     required this.isSelected,
+    required this.categoryColor,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Card(
-        elevation: 5,
-        color: isSelected ? Colors.blue[50] : Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: isSelected
-              ? const BorderSide(color: Colors.blue, width: 2)
-              : BorderSide.none,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              category['image'],
-              width: 80,
-              height: 60,
-              errorBuilder: (_, __, ___) => const Icon(Icons.error), // Handle missing images
-            ),
-            Config.spaceSmall,
-            Text(
-              category['name'],
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isSelected ? Colors.blue : Colors.black,
+    return Card(
+      elevation: isSelected ? 8 : 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side:
+            isSelected
+                ? BorderSide(color: categoryColor, width: 2)
+                : BorderSide.none,
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: categoryColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Image.asset(
+                  category['image'],
+                  width: 48,
+                  height: 48,
+                  errorBuilder:
+                      (_, __, ___) => Icon(
+                        Icons.medical_services,
+                        size: 40,
+                        color: categoryColor,
+                      ),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              Text(
+                category['name'],
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? categoryColor : null,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

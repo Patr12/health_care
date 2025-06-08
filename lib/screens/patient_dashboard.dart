@@ -126,7 +126,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
     return Scaffold(
       appBar: CustomAppBar(
-        appTitle: "Welcome, ${_userName ?? 'User'}!",
+        appTitle: "Welcome,!",
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
         ],

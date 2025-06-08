@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:health/layout.dart';
 import 'package:health/models/authModel.dart';
 import 'package:health/screens/home_screen.dart';
-import 'package:health/screens/patient_dashboard.dart';
 import 'package:health/screens/registerPage.dart';
 import 'package:health/screens/schedule.dart';
 import 'package:health/screens/settings.dart';
@@ -15,7 +14,6 @@ import 'package:health/utils/config.dart';
 import 'package:health/utils/disease_prediction_page.dart';
 import 'package:health/utils/health_advice_page.dart';
 import 'package:health/utils/online_doctor_page.dart';
-import 'package:health/utils/registration_page.dart';
 import 'package:provider/provider.dart';
 import 'package:health/screens/doctorDetails.dart';
 import 'package:health/screens/loginPage.dart';
@@ -74,11 +72,11 @@ class MyApp extends StatelessWidget {
           'success': (context) => const Success(),
           'settings': (context) => Settings(),
           '/disease_prediction': (context) => const DiseasePredictionPage(),
-          '/clinic_registration': (context) => const ClinicRegistrationPage(),
+          '/clinic_registration': (context) => ClinicRegistrationPage(),
           '/health_advice': (context) => const HealthAdvicePage(),
           '/online_doctor': (context) => const OnlineDoctorPage(),
           '/all_health_tips': (context) => const AllHealthTipsPage(),
-          '/register': (context) => const RegistrationPage(),
+          '/register': (context) => const RegisterPage(),
         },
       ),
     );

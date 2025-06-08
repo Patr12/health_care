@@ -340,7 +340,7 @@ class DatabaseHelper {
     FROM users u
     JOIN doctor_profiles d ON u.id = d.user_id
     WHERE u.role = ? 
-      AND (d.available_for_${communicationType} = 1)
+      AND (d.available_for_$communicationType = 1)
       AND u.is_verified = 1
     ''',
     [ROLE_DOCTOR],
