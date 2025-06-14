@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:health/chart/user_selection_dialog.dart';
 import 'package:health/data/database_helper.dart';
 import 'package:health/models/message_model.dart';
+import 'package:health/models/user_model.dart';
 
 class MessageChatPage extends StatefulWidget {
   final String currentUserId;
@@ -22,10 +22,10 @@ class _MessageChatPageState extends State<MessageChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   List<Message> _messages = [];
-  String? _selectedUserId;
-  String? _selectedUserName;
-  List<Map<String, dynamic>> _availableUsers = [];
+  User? _selectedUser;
+  List<User> _availableUsers = [];
   bool _isLoading = true;
+  bool _isSending = false;
 
   @override
   void initState() {
@@ -33,68 +33,77 @@ class _MessageChatPageState extends State<MessageChatPage> {
     _loadAvailableUsers();
   }
 
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadAvailableUsers() async {
     try {
-      final db = await DatabaseHelper().database;
-      final users = await db.rawQuery('''
-        SELECT id, name, 'admin' as role FROM admins
-        UNION
-        SELECT id, name, 'doctor' as role FROM doctors
-        WHERE id != ?
-      ''', [widget.currentUserId]);
-
+      final dbHelper = DatabaseHelper();
+      final users = await dbHelper.getAllUsersExcept(widget.currentUserId);
+      
       setState(() {
         _availableUsers = users;
         _isLoading = false;
       });
     } catch (e) {
-      print('Error loading users: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      debugPrint('Error loading users: $e');
+      setState(() => _isLoading = false);
+      _showErrorSnackbar('Failed to load users');
     }
   }
 
   Future<void> _selectUser() async {
-    final selectedUserId = await showDialog<String>(
+    final selectedUser = await showDialog<User>(
       context: context,
-      builder: (context) => UserSelectionDialog(
-        users: _availableUsers,
-        currentUserId: widget.currentUserId,
+      builder: (context) => AlertDialog(
+        title: const Text('Select User'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: _availableUsers.length,
+            itemBuilder: (context, index) {
+              final user = _availableUsers[index];
+              return ListTile(
+                leading: CircleAvatar(
+                  child: Text(user.name.substring(0, 1)),
+                ),
+                title: Text(user.name),
+                subtitle: Text(user.role),
+                onTap: () => Navigator.pop(context, user),
+              );
+            },
+          ),
+        ),
       ),
     );
 
-    if (selectedUserId != null) {
-      final selectedUser = _availableUsers.firstWhere(
-        (user) => user['id'] == selectedUserId,
-      );
-      
+    if (selectedUser != null) {
       setState(() {
-        _selectedUserId = selectedUserId;
-        _selectedUserName = selectedUser['name'];
+        _selectedUser = selectedUser;
       });
-      
-      _loadMessages();
+      await _loadMessages();
     }
   }
 
   Future<void> _loadMessages() async {
-    if (_selectedUserId == null) return;
+    if (_selectedUser == null) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
       final messages = await DatabaseHelper().getMessagesBetweenUsers(
         widget.currentUserId,
-        _selectedUserId!,
+        _selectedUser!.id,
       );
 
-      // Mark messages as read
       await DatabaseHelper().markMessagesAsRead(
-        int.parse(_selectedUserId!),
-        int.parse(widget.currentUserId),
+        _selectedUser!.id,
+        widget.currentUserId,
       );
 
       setState(() {
@@ -102,70 +111,100 @@ class _MessageChatPageState extends State<MessageChatPage> {
         _isLoading = false;
       });
 
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
+      _scrollToBottom();
     } catch (e) {
-      print('Error loading messages: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      debugPrint('Error loading messages: $e');
+      setState(() => _isLoading = false);
+      _showErrorSnackbar('Failed to load messages');
     }
   }
 
   Future<void> _sendMessage() async {
-    if (_messageController.text.trim().isEmpty || _selectedUserId == null) return;
+    if (_messageController.text.trim().isEmpty || _selectedUser == null) return;
+    if (_isSending) return;
 
-    final message = Message(
+    final content = _messageController.text.trim();
+    _messageController.clear();
+    setState(() => _isSending = true);
+
+    final newMessage = Message(
       id: DateTime.now().millisecondsSinceEpoch,
       senderId: widget.currentUserId,
-      receiverId: _selectedUserId!,
-      content: _messageController.text,
+      receiverId: _selectedUser!.id,
+      content: content,
       timestamp: DateTime.now(),
-      senderName: widget.currentUserName,
-      receiverName: _selectedUserName,
+      status: 'pending',
     );
 
+    setState(() {
+      _messages = [..._messages, newMessage];
+    });
+
+    _scrollToBottom();
+
     try {
-      await DatabaseHelper().insertMessage(message);
+      final messageId = await DatabaseHelper().insertMessage(newMessage);
       
       setState(() {
-        _messages.add(message);
-        _messageController.clear();
-      });
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
+        _messages = _messages.map((msg) {
+          return msg.id == newMessage.id 
+              ? msg.copyWith(id: messageId, status: 'sent') 
+              : msg;
+        }).toList();
       });
     } catch (e) {
-      print('Error sending message: $e');
+      debugPrint('Error sending message: $e');
+      setState(() {
+        _messages = _messages.map((msg) {
+          return msg.id == newMessage.id 
+              ? msg.copyWith(status: 'failed') 
+              : msg;
+        }).toList();
+      });
+      _showErrorSnackbar('Failed to send message');
+    } finally {
+      setState(() => _isSending = false);
     }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _showErrorSnackbar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: _selectedUserId == null
+        title: _selectedUser == null
             ? const Text('Select a user')
-            : Text('Chat with $_selectedUserName'),
+            : Text('Chat with ${_selectedUser!.name}'),
         actions: [
           IconButton(
             icon: const Icon(Icons.person_add),
             onPressed: _selectUser,
           ),
+          if (_selectedUser != null)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loadMessages,
+            ),
         ],
       ),
       body: Column(
@@ -176,7 +215,7 @@ class _MessageChatPageState extends State<MessageChatPage> {
                 child: CircularProgressIndicator(),
               ),
             )
-          else if (_selectedUserId == null)
+          else if (_selectedUser == null)
             Expanded(
               child: Center(
                 child: Column(
@@ -189,7 +228,7 @@ class _MessageChatPageState extends State<MessageChatPage> {
                       style: TextStyle(fontSize: 18),
                     ),
                     const SizedBox(height: 8),
-                    TextButton(
+                    ElevatedButton(
                       onPressed: _selectUser,
                       child: const Text('Select a user to chat with'),
                     ),
@@ -206,42 +245,75 @@ class _MessageChatPageState extends State<MessageChatPage> {
                   final message = _messages[index];
                   final isMe = message.senderId == widget.currentUserId;
 
-                  return Align(
-                    alignment: isMe
-                        ? Alignment.centerRight
-                        : Alignment.centerLeft,
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(
-                        vertical: 4,
-                        horizontal: 8,
-                      ),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: isMe ? Colors.blue[100] : Colors.grey[200],
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (!isMe)
-                            Text(
-                              message.senderName ?? 'Unknown',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 4,
+                      horizontal: 8,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: isMe 
+                          ? MainAxisAlignment.end 
+                          : MainAxisAlignment.start,
+                      children: [
+                        if (!isMe)
+                          CircleAvatar(
+                            radius: 16,
+                            child: Text(_selectedUser!.name.substring(0, 1)),
+                          ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isMe 
+                                  ? (message.status == 'failed' 
+                                      ? Colors.red[100] 
+                                      : Colors.blue[100])
+                                  : Colors.grey[200],
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          Text(message.content),
-                          const SizedBox(height: 4),
-                          Text(
-                            DateFormat('hh:mm a').format(message.timestamp),
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey,
+                            child: Column(
+                              crossAxisAlignment: isMe 
+                                  ? CrossAxisAlignment.end 
+                                  : CrossAxisAlignment.start,
+                              children: [
+                                if (!isMe)
+                                  Text(
+                                    _selectedUser!.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                Text(message.content),
+                                const SizedBox(height: 4),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      DateFormat('hh:mm a').format(message.timestamp),
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    if (isMe && message.status == 'failed')
+                                      const Padding(
+                                        padding: EdgeInsets.only(left: 4.0),
+                                        child: Icon(Icons.error, size: 14, color: Colors.red),
+                                      ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        if (isMe && message.status == 'failed')
+                          IconButton(
+                            icon: const Icon(Icons.refresh, size: 20),
+                            onPressed: () => _retryMessage(message),
+                          ),
+                      ],
                     ),
                   );
                 },
@@ -254,15 +326,26 @@ class _MessageChatPageState extends State<MessageChatPage> {
                 Expanded(
                   child: TextField(
                     controller: _messageController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Type a message...',
-                      border: OutlineInputBorder(),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                     ),
+                    maxLines: 3,
+                    minLines: 1,
                     onSubmitted: (_) => _sendMessage(),
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.send),
+                  icon: _isSending
+                      ? const CircularProgressIndicator()
+                      : const Icon(Icons.send),
+                  color: Colors.blue,
                   onPressed: _sendMessage,
                 ),
               ],
@@ -271,5 +354,17 @@ class _MessageChatPageState extends State<MessageChatPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _retryMessage(Message message) async {
+    setState(() {
+      _messages = _messages.map((msg) {
+        return msg.id == message.id 
+            ? msg.copyWith(status: 'pending') 
+            : msg;
+      }).toList();
+    });
+    
+    await _sendMessage();
   }
 }

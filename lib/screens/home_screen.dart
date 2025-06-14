@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:health/chart/message_chat_page.dart';
+import 'package:health/screens/appointments.dart';
 import 'package:health/screens/loginPage.dart';
 import 'package:health/screens/patient_dashboard.dart';
 import 'package:health/screens/symptomsPage.dart';
@@ -19,12 +21,21 @@ class _HomeScreenState extends State<HomeScreen> {
   int? loggedInUserId;
   Map<String, dynamic>? currentUser;
   bool _isLoading = true;
+  String userName = 'Guest'; // Added for drawer display
   final DatabaseHelper _dbHelper = DatabaseHelper();
 
   @override
   void initState() {
     super.initState();
     _initializeUserData();
+    _loadUserName(); // Load user name for drawer
+  }
+
+  Future<void> _loadUserName() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      userName = prefs.getString('userName') ?? 'Guest';
+    });
   }
 
   Future<void> _initializeUserData() async {
@@ -60,6 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('userId');
+    await prefs.remove('userName'); // Remove stored name
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
@@ -136,6 +148,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: Text("Welcom $userName")),
+      drawer: _buildDrawer(),
       body: SafeArea(
         child: IndexedStack(index: _selectedIndex, children: _pages),
       ),
@@ -143,12 +157,122 @@ class _HomeScreenState extends State<HomeScreen> {
         currentIndex: _selectedIndex,
         onTap: _onTabTapped,
         items: _navItems,
-        selectedItemColor: Colors.blue, // Changed for visibility
+        selectedItemColor: Colors.blue,
         unselectedItemColor: Colors.grey,
         showSelectedLabels: true,
         showUnselectedLabels: true,
         type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white, // Explicit background
+        backgroundColor: Colors.white,
+      ),
+    );
+  }
+
+  Widget _buildDrawer() {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          UserAccountsDrawerHeader(
+            accountName: Text(userName),
+            accountEmail: Text(
+              loggedInUserId != null ? 'Patient' : 'Guest',
+              style: TextStyle(fontSize: 14),
+            ),
+            currentAccountPicture: CircleAvatar(
+              child: Text(
+                userName.isNotEmpty ? userName[0].toUpperCase() : 'G',
+                style: TextStyle(fontSize: 24),
+              ),
+            ),
+            decoration: BoxDecoration(color: Colors.blue),
+          ),
+          ListTile(
+            leading: Icon(Icons.home),
+            title: Text('Home'),
+            onTap: () {
+              setState(() => _selectedIndex = 0);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.local_hospital),
+            title: Text('Clinic'),
+            onTap: () {
+              setState(() => _selectedIndex = 1);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.history),
+            title: Text('History'),
+            onTap: () {
+              setState(() => _selectedIndex = 2);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.history),
+            title: Text('History'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SymptomsPage()),
+              );
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.history),
+            title: Text('Appointments'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const Appointments(doctor: {}),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.message),
+            title: Text('Message'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder:
+                      (_) => const MessageChatPage(
+                        currentUserId: '',
+                        currentUserName: '',
+                      ),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.person),
+            title: Text('Profile'),
+            onTap: () {
+              if (loggedInUserId == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Please login to access profile')),
+                );
+                Navigator.pop(context);
+                return;
+              }
+              setState(() => _selectedIndex = 3);
+              Navigator.pop(context);
+            },
+          ),
+          Divider(),
+          ListTile(
+            leading: Icon(Icons.logout),
+            title: Text('Logout'),
+            onTap: () {
+              Navigator.pop(context);
+              _logout();
+            },
+          ),
+        ],
       ),
     );
   }

@@ -1,23 +1,33 @@
 class Message {
-  final int? id;
+  final int id;
   final String senderId;
   final String receiverId;
   final String content;
   final DateTime timestamp;
+  final String status;
   final bool isRead;
-  final String? senderName;
-  final String? receiverName;
 
   Message({
-    this.id,
+    required this.id,
     required this.senderId,
     required this.receiverId,
     required this.content,
     required this.timestamp,
+    this.status = 'sent',
     this.isRead = false,
-    this.senderName,
-    this.receiverName,
   });
+
+  factory Message.fromMap(Map<String, dynamic> map) {
+    return Message(
+      id: map['id'] as int,
+      senderId: map['sender_id'].toString(),
+      receiverId: map['receiver_id'].toString(),
+      content: map['content'].toString(),
+      timestamp: DateTime.parse(map['timestamp'].toString()),
+      status: map['status']?.toString() ?? 'sent',
+      isRead: map['is_read'] == 1,
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -26,22 +36,28 @@ class Message {
       'receiver_id': receiverId,
       'content': content,
       'timestamp': timestamp.toIso8601String(),
+      'status': status,
       'is_read': isRead ? 1 : 0,
     };
   }
 
-  factory Message.fromMap(Map<String, dynamic> map) {
+  Message copyWith({
+    int? id,
+    String? senderId,
+    String? receiverId,
+    String? content,
+    DateTime? timestamp,
+    String? status,
+    bool? isRead,
+  }) {
     return Message(
-      id: map['id'],
-      senderId: map['sender_id'],
-      receiverId: map['receiver_id'],
-      content: map['content'],
-      timestamp: DateTime.parse(map['timestamp']),
-      isRead: map['is_read'] == 1,
+      id: id ?? this.id,
+      senderId: senderId ?? this.senderId,
+      receiverId: receiverId ?? this.receiverId,
+      content: content ?? this.content,
+      timestamp: timestamp ?? this.timestamp,
+      status: status ?? this.status,
+      isRead: isRead ?? this.isRead,
     );
-  }
-
-  static List<Message> fromList(List<Map<String, dynamic>> maps) {
-    return maps.map((map) => Message.fromMap(map)).toList();
   }
 }

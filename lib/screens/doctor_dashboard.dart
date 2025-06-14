@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:health/data/database_helper.dart';
+import 'package:health/utils/contacts_list_screen.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite/sqflite.dart' as sql;
 
 class DoctorDashboard extends StatefulWidget {
   const DoctorDashboard({super.key});
@@ -11,44 +14,99 @@ class DoctorDashboard extends StatefulWidget {
 
 class _DoctorDashboardState extends State<DoctorDashboard> {
   final DatabaseHelper _dbHelper = DatabaseHelper();
-  late Map<String, dynamic> _doctor;
+  Map<String, dynamic> _doctor = {}; // Initialize as empty map instead of late
   List<Map<String, dynamic>> _appointments = [];
   List<Map<String, dynamic>> _schedules = [];
-  List<Map<String, dynamic>> _messages = [];
   bool _isLoading = true;
   int _selectedTab = 0;
+  String _doctorName = "Doctor";
 
   @override
   void initState() {
     super.initState();
-    _loadDoctorData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadDoctorData();
+    });
+  }
+
+  Future<void> _deleteSchedule(int scheduleId) async {
+    try {
+      await _dbHelper.deleteDoctorSchedule(scheduleId);
+      await _loadDoctorData();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Schedule deleted successfully")),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error deleting schedule: ${e.toString()}")),
+      );
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getDoctorSchedules(int doctorId) async {
+    final db = await _dbHelper.database;
+    try {
+      final schedules = await db.query(
+        'doctor_schedules',
+        where: 'doctor_id = ?',
+        whereArgs: [doctorId],
+      );
+
+      debugPrint('Fetched ${schedules.length} schedules for doctor $doctorId');
+      return schedules;
+    } catch (e) {
+      debugPrint('Error getting doctor schedules: $e');
+      return [];
+    }
   }
 
   Future<void> _loadDoctorData() async {
+    setState(() => _isLoading = true);
+
     try {
-      final currentUser = await _dbHelper.getCurrentUser();
-      final doctorProfile = await _dbHelper.getDoctorProfile(currentUser['id']);
-      final appointments = await _dbHelper.getDoctorAppointments(
-        currentUser['id'],
-      );
-      final schedules = await _dbHelper.getDoctorSchedules(currentUser['id']);
-      final messages = await _dbHelper.getConversation(
-        currentUser['id'],
-        0,
-      ); // 0 for admin
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('userId');
+
+      if (userId == null) {
+        throw Exception('No user ID found in storage');
+      }
+
+      // Load all doctor data in parallel with explicit types
+      final results = await Future.wait([
+        _dbHelper.getCurrentUser() as Future<Map<String, dynamic>?>,
+        _dbHelper.getDoctorProfile(userId),
+        _dbHelper.getDoctorAppointments(userId),
+        _dbHelper.getDoctorSchedules(userId),
+        _dbHelper.getConversation(userId, 0),
+      ]);
+
+      final currentUser = results[0] as Map<String, dynamic>?;
+      final doctorProfile = results[1] as Map<String, dynamic>?;
+      final appointments = results[2] as List<Map<String, dynamic>>;
+      final schedules = results[3] as List<Map<String, dynamic>>;
+
+      if (currentUser == null || doctorProfile == null) {
+        throw Exception('Doctor profile not found');
+      }
 
       setState(() {
-        _doctor = {...currentUser, ...?doctorProfile};
+        _doctor = {...currentUser, ...doctorProfile};
+        _doctorName = _doctor['full_name'] ?? "Doctor";
         _appointments = appointments;
         _schedules = schedules;
-        _messages = messages;
         _isLoading = false;
       });
+
+      // Update stored name if different
+      if (_doctor['full_name'] != null) {
+        await prefs.setString('userName', _doctor['full_name']);
+      }
     } catch (e) {
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error loading data: ${e.toString()}")),
       );
+      debugPrint('Error loading doctor data: $e');
     }
   }
 
@@ -69,18 +127,87 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     }
   }
 
+  Future<int> addDoctorSchedule(
+    int doctorId,
+    Map<String, dynamic> schedule,
+  ) async {
+    final db = await _dbHelper;
+    try {
+      // Validate input data first
+      if (doctorId == null || doctorId <= 0) {
+        throw ArgumentError('Invalid doctor ID');
+      }
+
+      if (schedule['day_of_week'] == null ||
+          schedule['start_time'] == null ||
+          schedule['end_time'] == null) {
+        throw ArgumentError('Missing required schedule fields');
+      }
+
+      final id = await db.insert('doctor_schedules', {
+        'doctor_id': doctorId,
+        'day_of_week': schedule['day_of_week'],
+        'start_time': schedule['start_time'],
+        'end_time': schedule['end_time'],
+      });
+
+      if (id == null || id <= 0) {
+        throw Exception('Insert operation returned invalid ID');
+      }
+
+      debugPrint('Added schedule with ID: $id');
+      return id;
+    } catch (e) {
+      debugPrint('Error adding doctor schedule: $e');
+      if (e is sql.DatabaseException) {
+        debugPrint('Database error details: ${e.toString()}');
+        debugPrint('Result: ${e.getResultCode()}');
+      }
+      return -1;
+    }
+  }
+
   Future<void> _addSchedule(Map<String, dynamic> scheduleData) async {
     try {
-      final currentUser = await _dbHelper.getCurrentUser();
-      await _dbHelper.addDoctorSchedule(currentUser['id'], scheduleData);
-      await _loadDoctorData();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Schedule added successfully")),
-      );
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('userId');
+
+      if (userId == null || userId <= 0) {
+        throw Exception('No valid user ID found in SharedPreferences');
+      }
+
+      debugPrint('Adding schedule for doctor ID: $userId');
+      debugPrint('Schedule data: $scheduleData');
+
+      // Validate schedule data before insertion
+      if (scheduleData['day_of_week'] == null ||
+          scheduleData['start_time'] == null ||
+          scheduleData['end_time'] == null) {
+        throw Exception('Incomplete schedule data provided');
+      }
+
+      final result = await _dbHelper.addDoctorSchedule(userId, scheduleData);
+
+      if (result > 0) {
+        await _loadDoctorData(); // Refresh the data
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Schedule added successfully")),
+          );
+        }
+
+        debugPrint('Current schedules count: ${_schedules.length}');
+      } else {
+        throw Exception('Database insertion failed (returned ID: $result)');
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error adding schedule: ${e.toString()}")),
-      );
+      debugPrint('Error in _addSchedule: ${e.toString()}');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error adding schedule: ${e.toString()}")),
+        );
+      }
     }
   }
 
@@ -88,7 +215,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Dr. ${_doctor['full_name']} Dashboard'),
+        title: Text('Dr. $_doctorName Dashboard'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -116,6 +243,18 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
+      // Add this to your Scaffold's floatingActionButton
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final prefs = await SharedPreferences.getInstance();
+          final userId = prefs.getInt('userId');
+          debugPrint('Current user ID: $userId');
+          debugPrint('Current schedules: $_schedules');
+          final dbSchedules = await _dbHelper.getDoctorSchedules(userId ?? 0);
+          debugPrint('DB schedules: $dbSchedules');
+        },
+        child: const Icon(Icons.bug_report),
+      ),
     );
   }
 
@@ -126,7 +265,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
       case 1:
         return _buildScheduleTab();
       case 2:
-        return _buildMessagesTab();
+        return ContactsListScreen();
       case 3:
         return _buildProfileTab();
       default:
@@ -243,6 +382,10 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
   }
 
   Widget _buildScheduleTab() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return Column(
       children: [
         Padding(
@@ -262,76 +405,57 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
           ),
         ),
         Expanded(
-          child: ListView.builder(
-            itemCount: _schedules.length,
-            itemBuilder: (context, index) {
-              final schedule = _schedules[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: ListTile(
-                  title: Text(schedule['day_of_week']),
-                  subtitle: Text(
-                    '${schedule['start_time']} - ${schedule['end_time']}',
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () {
-                      // Implement delete schedule
+          child:
+              _schedules.isEmpty
+                  ? const Center(
+                    child: Text(
+                      'No schedules available\nAdd your availability',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                  )
+                  : ListView.builder(
+                    itemCount: _schedules.length,
+                    itemBuilder: (context, index) {
+                      final schedule = _schedules[index];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        child: ListTile(
+                          title: Text(
+                            schedule['day_of_week'] ?? 'Day not specified',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Text(
+                            '${schedule['start_time'] ?? ''} - ${schedule['end_time'] ?? ''}',
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () => _deleteSchedule(schedule['id']),
+                          ),
+                        ),
+                      );
                     },
                   ),
-                ),
-              );
-            },
-          ),
         ),
       ],
     );
   }
 
-  Widget _buildMessagesTab() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: _messages.length,
-      itemBuilder: (context, index) {
-        final message = _messages[index];
-        return Align(
-          alignment:
-              message['sender_id'] == _doctor['id']
-                  ? Alignment.centerRight
-                  : Alignment.centerLeft,
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color:
-                  message['sender_id'] == _doctor['id']
-                      ? Colors.blue[100]
-                      : Colors.grey[200],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  message['message_text'],
-                  style: const TextStyle(fontSize: 16),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  DateFormat(
-                    'hh:mm a',
-                  ).format(DateTime.parse(message['sent_at'])),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildProfileTab() {
+    // Return loading indicator if doctor data isn't loaded yet
+    if (_doctor.isEmpty || _isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    // Helper function to safely get values with defaults
+    String getDoctorValue(String key, [String defaultValue = 'Not provided']) {
+      final value = _doctor[key];
+      return value?.toString() ?? defaultValue;
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -340,31 +464,32 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
           Center(
             child: CircleAvatar(
               radius: 60,
+              backgroundColor: Colors.blue[100],
               child: Text(
-                _doctor['full_name'].toString().substring(0, 1),
+                getDoctorValue('full_name', 'D').substring(0, 1).toUpperCase(),
                 style: const TextStyle(fontSize: 40),
               ),
             ),
           ),
           const SizedBox(height: 20),
-          _buildProfileItem('Full Name', _doctor['full_name']),
-          _buildProfileItem('Email', _doctor['email']),
-          _buildProfileItem('Phone', _doctor['phone_number'] ?? 'Not provided'),
+          _buildProfileItem('Full Name', getDoctorValue('full_name')),
+          _buildProfileItem('Email', getDoctorValue('email')),
+          _buildProfileItem('Phone', getDoctorValue('phone_number')),
           _buildProfileItem(
             'Specialty',
-            _doctor['specialty'] ?? 'Has no Specility',
+            getDoctorValue('specialty', 'No specialty'),
           ),
           _buildProfileItem(
             'Hospital',
-            _doctor['hospital'] ?? 'Has no Hospital',
+            getDoctorValue('hospital', 'No hospital'),
           ),
           _buildProfileItem(
             'Experience',
-            '${_doctor['experience_years']} years',
+            '${getDoctorValue('experience_years', '0')} years',
           ),
           _buildProfileItem(
             'Consultation Fee',
-            '\$${_doctor['consultation_fee']}',
+            '\$${getDoctorValue('consultation_fee', '0')}',
           ),
           const SizedBox(height: 20),
           Center(
@@ -426,26 +551,33 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
               children: [
                 DropdownButtonFormField<String>(
                   decoration: const InputDecoration(labelText: 'Day of Week'),
-                  items:
-                      const [
-                            'Monday',
-                            'Tuesday',
-                            'Wednesday',
-                            'Thursday',
-                            'Friday',
-                            'Saturday',
-                            'Sunday',
-                          ]
-                          .map(
-                            (day) =>
-                                DropdownMenuItem(value: day, child: Text(day)),
-                          )
-                          .toList(),
+                  items: const [
+                    DropdownMenuItem(value: 'Monday', child: Text('Monday')),
+                    DropdownMenuItem(value: 'Tuesday', child: Text('Tuesday')),
+                    DropdownMenuItem(
+                      value: 'Wednesday',
+                      child: Text('Wednesday'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Thursday',
+                      child: Text('Thursday'),
+                    ),
+                    DropdownMenuItem(value: 'Friday', child: Text('Friday')),
+                    DropdownMenuItem(
+                      value: 'Saturday',
+                      child: Text('Saturday'),
+                    ),
+                    DropdownMenuItem(value: 'Sunday', child: Text('Sunday')),
+                  ],
                   onChanged: (value) => dayController.text = value!,
                 ),
+                const SizedBox(height: 16),
                 TextField(
                   controller: startTimeController,
-                  decoration: const InputDecoration(labelText: 'Start Time'),
+                  decoration: const InputDecoration(
+                    labelText: 'Start Time',
+                    suffixIcon: Icon(Icons.access_time),
+                  ),
                   readOnly: true,
                   onTap: () async {
                     final time = await showTimePicker(
@@ -457,9 +589,13 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                     }
                   },
                 ),
+                const SizedBox(height: 16),
                 TextField(
                   controller: endTimeController,
-                  decoration: const InputDecoration(labelText: 'End Time'),
+                  decoration: const InputDecoration(
+                    labelText: 'End Time',
+                    suffixIcon: Icon(Icons.access_time),
+                  ),
                   readOnly: true,
                   onTap: () async {
                     final time = await showTimePicker(
@@ -489,6 +625,10 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                       'end_time': endTimeController.text,
                     });
                     Navigator.pop(context);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please fill all fields')),
+                    );
                   }
                 },
                 child: const Text('Save'),

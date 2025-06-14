@@ -1,4 +1,5 @@
 import 'package:health/models/message_model.dart';
+import 'package:health/models/user_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
@@ -241,6 +242,20 @@ class DatabaseHelper {
     return await db.insert('users', userData);
   }
 
+  Future<List<User>> getAllUsersExcept(String currentUserId) async {
+    final db = await database;
+    final users = await db.rawQuery(
+      '''
+    SELECT id, name, 'admin' as role FROM admins WHERE id != ?
+    UNION
+    SELECT id, name, 'doctor' as role FROM doctors WHERE id != ?
+  ''',
+      [currentUserId, currentUserId],
+    );
+
+    return users.map((user) => User.fromMap(user)).toList();
+  }
+
   Future<Map<String, dynamic>?> loginUser(String email, String password) async {
     final db = await database;
     final result = await db.query(
@@ -273,15 +288,16 @@ class DatabaseHelper {
     );
     return result.isNotEmpty ? result.first : null;
   }
+
   Future<bool> checkUserExists(String email) async {
-  final db = await database;
-  final result = await db.query(
-    'users',
-    where: 'email = ?',
-    whereArgs: [email],
-  );
-  return result.isNotEmpty;
-}
+    final db = await database;
+    final result = await db.query(
+      'users',
+      where: 'email = ?',
+      whereArgs: [email],
+    );
+    return result.isNotEmpty;
+  }
 
   // ========== DOCTOR OPERATIONS ========== //
 
@@ -321,20 +337,22 @@ class DatabaseHelper {
     final db = await database;
     final result = await db.rawQuery(
       '''
-      SELECT u.*, d.* 
-      FROM users u
-      LEFT JOIN doctor_profiles d ON u.id = d.user_id
-      WHERE u.id = ? AND u.role = ?
+    SELECT u.*, d.* 
+    FROM users u
+    JOIN doctor_profiles d ON u.id = d.user_id
+    WHERE u.id = ? AND u.role = ?
     ''',
       [userId, ROLE_DOCTOR],
     );
     return result.isNotEmpty ? result.first : null;
   }
 
- Future<List<Map<String, dynamic>>> getAvailableDoctors(String communicationType) async {
-  final db = await database;
-  return await db.rawQuery(
-    '''
+  Future<List<Map<String, dynamic>>> getAvailableDoctors(
+    String communicationType,
+  ) async {
+    final db = await database;
+    return await db.rawQuery(
+      '''
     SELECT u.id, u.full_name, u.phone_number, d.specialty, d.hospital, 
            d.experience_years, d.available_for_video, d.available_for_sms
     FROM users u
@@ -343,9 +361,9 @@ class DatabaseHelper {
       AND (d.available_for_$communicationType = 1)
       AND u.is_verified = 1
     ''',
-    [ROLE_DOCTOR],
-  );
-}
+      [ROLE_DOCTOR],
+    );
+  }
 
   Future<String?> getDoctorPhoneNumber(int doctorId) async {
     final db = await database;
@@ -473,11 +491,16 @@ class DatabaseHelper {
   }
 
   // ========== MESSAGE OPERATIONS ==========
-
   Future<int> sendMessage(Map<String, dynamic> messageData) async {
     final db = await database;
     try {
-      return await db.insert('messages', messageData);
+      return await db.insert('messages', {
+        'sender_id': messageData['sender_id'],
+        'receiver_id': messageData['receiver_id'],
+        'message_text': messageData['message_text'],
+        'sent_at': DateTime.now().toIso8601String(),
+        'is_read': 0,
+      });
     } catch (e) {
       print('Error sending message: $e');
       return -1;
@@ -507,7 +530,16 @@ class DatabaseHelper {
 
   Future<int> insertMessage(Message message) async {
     final db = await database;
-    return await db.insert('messages', message.toMap());
+    try {
+      return await db.insert(
+        'messages',
+        message.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      print('Error inserting message: $e');
+      return -1;
+    }
   }
 
   Future<List<Message>> getMessagesBetweenUsers(
@@ -523,7 +555,7 @@ class DatabaseHelper {
         whereArgs: [user1Id, user2Id, user2Id, user1Id],
         orderBy: 'timestamp ASC',
       );
-      return Message.fromList(result);
+      return result.map((map) => Message.fromMap(map)).toList();
     } catch (e) {
       print('Error getting messages: $e');
       return [];
@@ -558,7 +590,7 @@ class DatabaseHelper {
     }
   }
 
-  Future<int> markMessagesAsRead(int senderId, int receiverId) async {
+  Future<int> markMessagesAsRead(String senderId, String receiverId) async {
     final db = await database;
     try {
       return await db.update(
@@ -570,6 +602,33 @@ class DatabaseHelper {
     } catch (e) {
       print('Error marking messages as read: $e');
       return 0;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getRecentConversations(int userId) async {
+    final db = await database;
+    try {
+      return await db.rawQuery(
+        '''
+      SELECT 
+        u.id,
+        u.full_name,
+        m.message_text as last_message,
+        m.sent_at,
+        COUNT(CASE WHEN m.is_read = 0 AND m.sender_id != ? THEN 1 END) as unread_count
+      FROM users u
+      JOIN messages m ON (
+        (m.sender_id = u.id AND m.receiver_id = ?) OR 
+        (m.receiver_id = u.id AND m.sender_id = ?)
+      )
+      GROUP BY u.id
+      ORDER BY m.sent_at DESC
+    ''',
+        [userId, userId, userId],
+      );
+    } catch (e) {
+      print('Error getting recent conversations: $e');
+      return [];
     }
   }
 
@@ -628,27 +687,54 @@ class DatabaseHelper {
   }
 
   // ========== SCHEDULE OPERATIONS ========== //
-  Future<int> addDoctorSchedule(
-    int doctorId,
-    Map<String, dynamic> scheduleData,
-  ) async {
-    final db = await database;
-    return await db.insert('schedules', {
-      ...scheduleData,
+ Future<int> addDoctorSchedule(int doctorId, Map<String, dynamic> schedule) async {
+  final db = await database;
+  try {
+    final id = await db.insert('doctor_schedules', {
       'doctor_id': doctorId,
+      'day_of_week': schedule['day_of_week'],
+      'start_time': schedule['start_time'],
+      'end_time': schedule['end_time'],
     });
+    
+    print('Added schedule with ID: $id');
+    return id;
+  } catch (e) {
+    print('Error adding doctor schedule: $e');
+    return -1;
   }
+}
 
-  Future<List<Map<String, dynamic>>> getDoctorSchedules(int doctorId) async {
-    final db = await database;
-    return await db.query(
-      'schedules',
+
+ Future<List<Map<String, dynamic>>> getDoctorSchedules(int doctorId) async {
+  final db = await database;
+  try {
+    final schedules = await db.query(
+      'doctor_schedules',
       where: 'doctor_id = ?',
       whereArgs: [doctorId],
-      orderBy: 'day_of_week, start_time',
     );
+    
+    print('Fetched ${schedules.length} schedules for doctor $doctorId');
+    return schedules;
+  } catch (e) {
+    print('Error getting doctor schedules: $e');
+    return [];
   }
-
+}
+Future<int> deleteDoctorSchedule(int scheduleId) async {
+  final db = await database;
+  try {
+    return await db.delete(
+      'doctor_schedules',
+      where: 'id = ?',
+      whereArgs: [scheduleId],
+    );
+  } catch (e) {
+    print('Error deleting doctor schedule: $e');
+    return 0;
+  }
+}
   Future<Map<String, dynamic>> getCurrentUser() async {
     // Implement logic to get current logged in user
     // This might come from your auth system or shared preferences

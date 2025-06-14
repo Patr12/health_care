@@ -23,8 +23,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
   List<Map<String, dynamic>> doctors = [];
   List<Map<String, dynamic>> appointments = [];
   bool _isLoading = true;
-  String? _userName;
-  String _profilePictureUrl = '';
+
   String _searchQuery = '';
   int? _userId;
   final DatabaseHelper dbHelper = DatabaseHelper();
@@ -56,8 +55,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
       if (mounted) {
         setState(() {
-          _userName = patient['full_name'];
-          _profilePictureUrl = patient['image'] ?? '';
+         
           doctors = doctorsData;
           appointments = appointmentsData;
           _isLoading = false;
@@ -87,8 +85,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
       if (mounted) {
         setState(() {
-          _userName = user['full_name'];
-          _profilePictureUrl = user['image'] ?? '';
+         
           doctors = doctorsData;
           appointments = appointmentsData;
           _isLoading = false;
@@ -125,51 +122,51 @@ class _PatientDashboardState extends State<PatientDashboard> {
     ];
 
     return Scaffold(
-      appBar: CustomAppBar(
-        appTitle: "Welcome,!",
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
-        ],
-      ),
-      drawer: AppDrawer(
-        userName: _userName ?? 'user',
-        profilePictureUrl: _profilePictureUrl,
-        onProfilePressed: () {
-          if (_userId != null) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => UserDetails(userId: _userId!)),
-            );
-          }
-        },
-        onAppointmentPressed:
-            () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const Appointments(doctor: {})),
-            ),
-        onSymptomsPressed:
-            () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SymptomsPage()),
-            ),
-        onNotificationsPressed:
-            () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder:
-                    (_) => const MessageChatPage(
-                      currentUserId: '',
-                      currentUserName: '',
-                    ),
-              ),
-            ),
-        onSettingsPressed:
-            () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const Settings()),
-            ),
-        onLogoutPressed: _logout,
-      ),
+      // appBar: CustomAppBar(
+      //   appTitle: "Welcome,!",
+      //   actions: [
+      //     IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
+      //   ],
+      // ),
+      // drawer: AppDrawer(
+      //   userName: _userName ?? 'user',
+      //   profilePictureUrl: _profilePictureUrl,
+      //   onProfilePressed: () {
+      //     if (_userId != null) {
+      //       Navigator.push(
+      //         context,
+      //         MaterialPageRoute(builder: (_) => UserDetails(userId: _userId!)),
+      //       );
+      //     }
+      //   },
+      //   onAppointmentPressed:
+      //       () => Navigator.push(
+      //         context,
+      //         MaterialPageRoute(builder: (_) => const Appointments(doctor: {})),
+      //       ),
+      //   onSymptomsPressed:
+      //       () => Navigator.push(
+      //         context,
+      //         MaterialPageRoute(builder: (_) => const SymptomsPage()),
+      //       ),
+      //   onNotificationsPressed:
+      //       () => Navigator.push(
+      //         context,
+      //         MaterialPageRoute(
+      //           builder:
+      //               (_) => const MessageChatPage(
+      //                 currentUserId: '',
+      //                 currentUserName: '',
+      //               ),
+      //         ),
+      //       ),
+      //   onSettingsPressed:
+      //       () => Navigator.push(
+      //         context,
+      //         MaterialPageRoute(builder: (_) => const Settings()),
+      //       ),
+      //   onLogoutPressed: _logout,
+      // ),
       body:
           _isLoading
               ? const Center(child: CircularProgressIndicator())
