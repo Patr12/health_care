@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../components/customAppBar.dart';
 import '../utils/config.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:health/data/database_helper.dart';
-import 'package:health/utils/book_appointment_page.dart'; // Hakikisha hii ipo ikiwa unahitaji ku book appointment
+import 'package:health/utils/book_appointment_page.dart';
 
 class DoctorDetails extends StatefulWidget {
   final Map<String, dynamic> doctor;
@@ -19,11 +20,65 @@ class _DoctorDetailsState extends State<DoctorDetails> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _schedules = [];
 
+  // Get doctor phone number with fallbacks
+  String get doctorPhone {
+    return widget.doctor['phone_number'] ??
+        widget.doctor['user_phone'] ??
+        'No phone available';
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_isLoading) {
       _loadDoctorSchedules();
+    }
+  }
+
+  Future<void> _callDoctor(String phoneNumber) async {
+    if (phoneNumber == 'No phone available') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Hakuna namba ya simu ya daktari")),
+      );
+      return;
+    }
+
+    // Format phone number if needed
+    final formattedNumber =
+        phoneNumber.startsWith('+')
+            ? phoneNumber
+            : phoneNumber.startsWith('0')
+            ? '+255${phoneNumber.substring(1)}'
+            : '+$phoneNumber';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text("Piga Daktari?"),
+            content: Text("Unataka kupiga simu kwa $formattedNumber?"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("Ghairi"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text("Piga"),
+              ),
+            ],
+          ),
+    );
+
+    if (confirmed == true) {
+      final Uri phoneUri = Uri(scheme: "tel", path: formattedNumber);
+      if (await canLaunchUrl(phoneUri)) {
+        await launchUrl(phoneUri);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Haiwezekani kufungua simu")),
+        );
+      }
     }
   }
 
@@ -121,8 +176,43 @@ class _DoctorDetailsState extends State<DoctorDetails> {
             ),
             Config.spaceSmall,
             Text(
-              doctor['bio'] ?? 'No information available',
+              doctor['gender'] ?? 'No information available',
               style: TextStyle(color: Colors.grey[700]),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Contact Us",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                Config.spaceSmall,
+                FutureBuilder<String?>(
+                  future: _dbHelper.getDoctorPhoneNumber(widget.doctor['id']),
+                  builder: (context, snapshot) {
+                    final phone = snapshot.data ?? doctorPhone;
+                    return InkWell(
+                      onTap: () => _callDoctor(phone),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Row(
+                          children: [
+                            Icon(Icons.phone, color: Config.primaryColor),
+                            const SizedBox(width: 10),
+                            Text(
+                              phone,
+                              style: const TextStyle(
+                                color: Colors.blue,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
             Config.spaceMedium,
 

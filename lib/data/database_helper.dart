@@ -43,6 +43,8 @@ class DatabaseHelper {
     await _createHealthInfoTable(db);
     await _createScheduleTable(db);
     await _createAdminControlsTable(db);
+    await _createPatientDoctorTable(db);
+    await _createPatientsTable(db);
 
     // Insert initial admin account
     await _insertInitialAdmin(db);
@@ -61,6 +63,8 @@ class DatabaseHelper {
       await _createAdminControlsTable(db);
       await _insertInitialAdmin(db);
       await _insertSampleDoctors(db);
+      await _createPatientDoctorTable(db);
+      await _createPatientsTable(db);
     }
   }
 
@@ -97,9 +101,10 @@ class DatabaseHelper {
         hospital TEXT,
         experience_years INTEGER,
         rating REAL DEFAULT 0.0,
+        phone_number TEXT,
         consultation_fee REAL,
         available_for_video INTEGER DEFAULT 1, -- 0 = no, 1 = yes
-      available_for_sms INTEGER DEFAULT 1,   -- 0 = no, 1 = yes
+        available_for_sms INTEGER DEFAULT 1,   -- 0 = no, 1 = yes
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       )
     ''');
@@ -181,12 +186,39 @@ class DatabaseHelper {
     ''');
   }
 
+  Future<void> _createPatientsTable(Database db) async {
+    await db.execute('''
+    CREATE TABLE IF NOT EXISTS patients (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      age INTEGER,
+      blood_type TEXT,
+      last_checkup TEXT,
+      allergies TEXT,
+      FOREIGN KEY (user_id) REFERENCES users (id)
+    )
+  ''');
+  }
+
+  Future<void> _createPatientDoctorTable(Database db) async {
+    await db.execute('''
+    CREATE TABLE patient_doctors (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      patient_id TEXT NOT NULL,
+      doctor_id TEXT NOT NULL,
+      FOREIGN KEY (patient_id) REFERENCES users (id) ON DELETE CASCADE,
+      FOREIGN KEY (doctor_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+  ''');
+  }
+
   // Insert initial data
   Future<void> _insertInitialAdmin(db) async {
     await db.insert('users', {
       'full_name': 'System Admin',
       'email': 'admin@healthapp.com',
       'password': 'admin123', // In production, use hashed password
+      'phone_number': '+255718486409',
       'role': ROLE_ADMIN,
       'is_verified': 1,
     });
@@ -198,6 +230,7 @@ class DatabaseHelper {
       'full_name': 'Dr. Sarah Johnson',
       'email': 'sarah@hospital.com',
       'password': 'doctor123',
+      'phone_number': '+255718486409',
       'role': ROLE_DOCTOR,
       'is_verified': 1,
     });
@@ -206,6 +239,7 @@ class DatabaseHelper {
       'full_name': 'Dr. Michael Chen',
       'email': 'michael@hospital.com',
       'password': 'doctor123',
+      'phone_number': '+255718486409',
       'role': ROLE_DOCTOR,
       'is_verified': 1,
     });
@@ -217,6 +251,7 @@ class DatabaseHelper {
       'description': 'Specializes in heart conditions with 10 years experience',
       'license_number': 'MD-12345',
       'hospital': 'City General Hospital',
+      'phone_number': '+255718486409',
       'experience_years': 10,
       'consultation_fee': 50.00,
     });
@@ -227,6 +262,7 @@ class DatabaseHelper {
       'description': 'Child specialist with gentle approach',
       'license_number': 'MD-67890',
       'hospital': 'Children\'s Medical Center',
+      'phone_number': '+255718486409',
       'experience_years': 7,
       'consultation_fee': 45.00,
     });
@@ -376,6 +412,49 @@ class DatabaseHelper {
     return result.isNotEmpty ? result.first['phone_number'] as String? : null;
   }
 
+  // Rekebisha getDoctors()
+  Future<List<Map<String, dynamic>>> getDoctors() async {
+    final db = await database;
+    final List<Map<String, dynamic>> doctors = await db.rawQuery(
+      '''
+    SELECT 
+      users.id,
+      users.full_name,
+      users.phone_number AS user_phone,
+      doctor_profiles.phone_number AS doctor_phone,
+      doctor_profiles.specialty,
+      doctor_profiles.hospital,
+      doctor_profiles.experience_years
+    FROM users
+    JOIN doctor_profiles ON users.id = doctor_profiles.user_id
+    WHERE users.role = ?
+    ''',
+      [ROLE_DOCTOR],
+    );
+    return doctors;
+  }
+
+  // Rekebisha getDoctorById()
+  Future<Map<String, dynamic>?> getDoctorById(int id) async {
+    final db = await database;
+    final List<Map<String, dynamic>> doctors = await db.rawQuery(
+      '''
+    SELECT 
+      users.id,
+      users.full_name,
+      users.phone_number AS user_phone,
+      doctor_profiles.phone_number AS doctor_phone,
+      doctor_profiles.specialty,
+      doctor_profiles.hospital
+    FROM users
+    JOIN doctor_profiles ON users.id = doctor_profiles.user_id
+    WHERE users.id = ? AND users.role = ?
+    ''',
+      [id, ROLE_DOCTOR],
+    );
+    return doctors.isNotEmpty ? doctors.first : null;
+  }
+
   // ========== ADMIN OPERATIONS ========== //
   Future<List<Map<String, dynamic>>> getAllUsers() async {
     final db = await database;
@@ -400,6 +479,30 @@ class DatabaseHelper {
       where: 'id = ? AND role = ?',
       whereArgs: [userId, ROLE_DOCTOR],
     );
+  }
+
+  // Kwenye DatabaseHelper
+  Future<void> verifyDoctorData() async {
+    final db = await database;
+    final doctors = await db.query(
+      'users',
+      where: 'role = ?',
+      whereArgs: [ROLE_DOCTOR],
+    );
+
+    for (var doctor in doctors) {
+      final profile = await db.query(
+        'doctor_profiles',
+        where: 'user_id = ?',
+        whereArgs: [doctor['id']],
+      );
+
+      print('Doctor: ${doctor['full_name']}');
+      print('User Phone: ${doctor['phone_number']}');
+      print(
+        'Profile Phone: ${profile.isNotEmpty ? profile.first['phone_number'] : "N/A"}',
+      );
+    }
   }
 
   Future<int> updateSystemSetting(
@@ -488,6 +591,96 @@ class DatabaseHelper {
       where: 'id = ?',
       whereArgs: [appointmentId],
     );
+  }
+  // Add to DatabaseHelper class
+
+  Future<List<User>> getAllDoctors() async {
+    final db = await database;
+    try {
+      final result = await db.query(
+        'users',
+        where: 'role = ?',
+        whereArgs: ['doctor'],
+      );
+      return result.map((map) => User.fromMap(map)).toList();
+    } catch (e) {
+      print('Error getting doctors: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> getPatientBasicInfo(String patientId) async {
+    final db = await database;
+
+    final result = await db.query(
+      'patients',
+      where: 'id = ?',
+      whereArgs: [patientId],
+      limit: 1,
+    );
+
+    if (result.isNotEmpty) {
+      final data = result.first;
+      return {
+        'age': data['age'] ?? 'N/A',
+        'bloodType': data['blood_type'] ?? 'N/A',
+        'lastCheckup': data['last_checkup'] ?? 'N/A',
+      };
+    } else {
+      return {'age': 'N/A', 'bloodType': 'N/A', 'lastCheckup': 'N/A'};
+    }
+  }
+
+  Future<List<User>> getDoctorsForPatient(String patientId) async {
+    final db = await database;
+    try {
+      // Angalia kwanza kama kuna uhusiano wa mgonjwa na daktari
+      final linkedDoctors = await db.rawQuery(
+        '''
+      SELECT u.* FROM users u
+      JOIN patient_doctors pd ON u.id = pd.doctor_id
+      WHERE pd.patient_id = ?
+      ''',
+        [patientId],
+      );
+
+      // Kama hakuna, rudisha madaktari wote
+      if (linkedDoctors.isEmpty) {
+        final allDoctors = await db.query(
+          'users',
+          where: 'role = ? AND is_verified = 1',
+          whereArgs: [ROLE_DOCTOR],
+        );
+        return allDoctors.map((map) => User.fromMap(map)).toList();
+      }
+
+      return linkedDoctors.map((map) => User.fromMap(map)).toList();
+    } catch (e) {
+      print('Error getting patient doctors: $e');
+      return [];
+    }
+  }
+
+  Future<List<User>> getPatientsForDoctor(String doctorId) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      '''
+    SELECT u.* FROM users u
+    INNER JOIN patient_doctors pd ON u.id = pd.patient_id
+    WHERE pd.doctor_id = ?
+  ''',
+      [doctorId],
+    );
+
+    return result.map((e) => User.fromMap(e)).toList();
+  }
+
+  Future<void> linkPatientWithDoctor(String patientId, String doctorId) async {
+    final db = await database;
+    await db.insert('patient_doctors', {
+      'patient_id': patientId,
+      'doctor_id': doctorId,
+    });
   }
 
   // ========== MESSAGE OPERATIONS ==========
@@ -687,54 +880,58 @@ class DatabaseHelper {
   }
 
   // ========== SCHEDULE OPERATIONS ========== //
- Future<int> addDoctorSchedule(int doctorId, Map<String, dynamic> schedule) async {
-  final db = await database;
-  try {
-    final id = await db.insert('doctor_schedules', {
-      'doctor_id': doctorId,
-      'day_of_week': schedule['day_of_week'],
-      'start_time': schedule['start_time'],
-      'end_time': schedule['end_time'],
-    });
-    
-    print('Added schedule with ID: $id');
-    return id;
-  } catch (e) {
-    print('Error adding doctor schedule: $e');
-    return -1;
-  }
-}
+  Future<int> addDoctorSchedule(
+    int doctorId,
+    Map<String, dynamic> schedule,
+  ) async {
+    final db = await database;
+    try {
+      final id = await db.insert('doctor_schedules', {
+        'doctor_id': doctorId,
+        'day_of_week': schedule['day_of_week'],
+        'start_time': schedule['start_time'],
+        'end_time': schedule['end_time'],
+      });
 
+      print('Added schedule with ID: $id');
+      return id;
+    } catch (e) {
+      print('Error adding doctor schedule: $e');
+      return -1;
+    }
+  }
 
- Future<List<Map<String, dynamic>>> getDoctorSchedules(int doctorId) async {
-  final db = await database;
-  try {
-    final schedules = await db.query(
-      'doctor_schedules',
-      where: 'doctor_id = ?',
-      whereArgs: [doctorId],
-    );
-    
-    print('Fetched ${schedules.length} schedules for doctor $doctorId');
-    return schedules;
-  } catch (e) {
-    print('Error getting doctor schedules: $e');
-    return [];
+  Future<List<Map<String, dynamic>>> getDoctorSchedules(int doctorId) async {
+    final db = await database;
+    try {
+      final schedules = await db.query(
+        'doctor_schedules',
+        where: 'doctor_id = ?',
+        whereArgs: [doctorId],
+      );
+
+      print('Fetched ${schedules.length} schedules for doctor $doctorId');
+      return schedules;
+    } catch (e) {
+      print('Error getting doctor schedules: $e');
+      return [];
+    }
   }
-}
-Future<int> deleteDoctorSchedule(int scheduleId) async {
-  final db = await database;
-  try {
-    return await db.delete(
-      'doctor_schedules',
-      where: 'id = ?',
-      whereArgs: [scheduleId],
-    );
-  } catch (e) {
-    print('Error deleting doctor schedule: $e');
-    return 0;
+
+  Future<int> deleteDoctorSchedule(int scheduleId) async {
+    final db = await database;
+    try {
+      return await db.delete(
+        'doctor_schedules',
+        where: 'id = ?',
+        whereArgs: [scheduleId],
+      );
+    } catch (e) {
+      print('Error deleting doctor schedule: $e');
+      return 0;
+    }
   }
-}
+
   Future<Map<String, dynamic>> getCurrentUser() async {
     // Implement logic to get current logged in user
     // This might come from your auth system or shared preferences
@@ -753,20 +950,6 @@ Future<int> deleteDoctorSchedule(int scheduleId) async {
   //     ORDER BY a.appointment_date, a.appointment_time
   //   ''', [userId]);
   // }
-
-  Future<List<Map<String, dynamic>>> getDoctors() async {
-    final db = await database;
-    return await db.rawQuery(
-      '''
-      SELECT u.id, u.full_name, d.specialty, d.hospital, d.experience_years
-FROM users u
-JOIN doctor_profiles d ON u.id = d.user_id
-WHERE u.role = ?
-
-    ''',
-      [ROLE_DOCTOR],
-    );
-  }
 
   Future<List<Map<String, dynamic>>> rawQuery(
     String sql, [

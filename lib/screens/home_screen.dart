@@ -236,18 +236,29 @@ class _HomeScreenState extends State<HomeScreen> {
             leading: Icon(Icons.message),
             title: Text('Message'),
             onTap: () {
+              if (currentUser == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Please login to send messages')),
+                );
+                return;
+              }
+
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder:
-                      (_) => const MessageChatPage(
-                        currentUserId: '',
-                        currentUserName: '',
+                      (_) => PatientDoctorChatPage(
+                        currentUserId: currentUser!['id'].toString(),
+                        currentUserName: currentUser!['name'].toString(),
+                        userRole:
+                            currentUser!['role'] ??
+                            'guest', // e.g. "patient" or "doctor"
                       ),
                 ),
               );
             },
           ),
+
           ListTile(
             leading: Icon(Icons.person),
             title: Text('Profile'),

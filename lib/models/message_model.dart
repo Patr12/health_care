@@ -6,6 +6,10 @@ class Message {
   final DateTime timestamp;
   final String status;
   final bool isRead;
+  final String? urgency;
+  final String? medicalContext;
+  final Map<String, dynamic>? patientInfo;
+
 
   Message({
     required this.id,
@@ -15,6 +19,9 @@ class Message {
     required this.timestamp,
     this.status = 'sent',
     this.isRead = false,
+     this.urgency,
+    this.medicalContext,
+    this.patientInfo
   });
 
   factory Message.fromMap(Map<String, dynamic> map) {
@@ -49,6 +56,9 @@ class Message {
     DateTime? timestamp,
     String? status,
     bool? isRead,
+    String? urgency,
+    String? medicalContext,
+    Map<String, dynamic>? patientInfo,
   }) {
     return Message(
       id: id ?? this.id,
@@ -58,6 +68,9 @@ class Message {
       timestamp: timestamp ?? this.timestamp,
       status: status ?? this.status,
       isRead: isRead ?? this.isRead,
+       urgency: urgency ?? this.urgency,
+      medicalContext: medicalContext ?? this.medicalContext,
+      patientInfo: patientInfo ?? this.patientInfo
     );
   }
 }

@@ -131,10 +131,10 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     int doctorId,
     Map<String, dynamic> schedule,
   ) async {
-    final db = await _dbHelper;
+    final db = _dbHelper;
     try {
       // Validate input data first
-      if (doctorId == null || doctorId <= 0) {
+      if (doctorId <= 0) {
         throw ArgumentError('Invalid doctor ID');
       }
 
@@ -151,7 +151,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
         'end_time': schedule['end_time'],
       });
 
-      if (id == null || id <= 0) {
+      if (id <= 0) {
         throw Exception('Insert operation returned invalid ID');
       }
 

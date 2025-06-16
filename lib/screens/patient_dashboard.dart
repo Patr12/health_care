@@ -1,13 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:health/chart/message_chat_page.dart';
-import 'package:health/components/appDrawer.dart';
-import 'package:health/components/customAppBar.dart';
 import 'package:health/data/database_helper.dart';
-import 'package:health/screens/appointments.dart';
 import 'package:health/screens/doctorDetails.dart';
-import 'package:health/screens/settings.dart';
-import 'package:health/screens/symptomsPage.dart';
-import 'package:health/screens/userDetails.dart';
 import 'package:health/utils/config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -121,52 +114,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
       'assets/banner/3.jpg',
     ];
 
-    return Scaffold(
-      // appBar: CustomAppBar(
-      //   appTitle: "Welcome,!",
-      //   actions: [
-      //     IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
-      //   ],
-      // ),
-      // drawer: AppDrawer(
-      //   userName: _userName ?? 'user',
-      //   profilePictureUrl: _profilePictureUrl,
-      //   onProfilePressed: () {
-      //     if (_userId != null) {
-      //       Navigator.push(
-      //         context,
-      //         MaterialPageRoute(builder: (_) => UserDetails(userId: _userId!)),
-      //       );
-      //     }
-      //   },
-      //   onAppointmentPressed:
-      //       () => Navigator.push(
-      //         context,
-      //         MaterialPageRoute(builder: (_) => const Appointments(doctor: {})),
-      //       ),
-      //   onSymptomsPressed:
-      //       () => Navigator.push(
-      //         context,
-      //         MaterialPageRoute(builder: (_) => const SymptomsPage()),
-      //       ),
-      //   onNotificationsPressed:
-      //       () => Navigator.push(
-      //         context,
-      //         MaterialPageRoute(
-      //           builder:
-      //               (_) => const MessageChatPage(
-      //                 currentUserId: '',
-      //                 currentUserName: '',
-      //               ),
-      //         ),
-      //       ),
-      //   onSettingsPressed:
-      //       () => Navigator.push(
-      //         context,
-      //         MaterialPageRoute(builder: (_) => const Settings()),
-      //       ),
-      //   onLogoutPressed: _logout,
-      // ),
+    return Scaffold(   
       body:
           _isLoading
               ? const Center(child: CircularProgressIndicator())

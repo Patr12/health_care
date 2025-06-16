@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:health/layout.dart';
 import 'package:health/models/authModel.dart';
 import 'package:health/screens/home_screen.dart';
 import 'package:health/screens/registerPage.dart';
@@ -63,8 +62,7 @@ class MyApp extends StatelessWidget {
           'login': (context) => LoginForm(),
           'register': (context) => RegisterPage(),
           'home': (context) => const HomeScreen(),
-          'layout':
-              (context) => const Layout(), // renamed to avoid key conflict
+          // renamed to avoid key conflict
           'symptoms': (context) => Symptoms(symptomName: ''),
           'doctor': (context) => const DoctorDetails(doctor: {}),
           'schedule': (context) => const Schedule(),

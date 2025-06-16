@@ -6,6 +6,9 @@ class Message {
   final String messageText;
   final DateTime sentAt;
   final bool isRead;
+  final String? urgency;
+  final String? medicalContext;
+  final Map<String, dynamic>? patientInfo;
 
   Message({
     required this.id,
@@ -14,6 +17,9 @@ class Message {
     required this.messageText,
     required this.sentAt,
     this.isRead = false,
+     this.urgency,
+    this.medicalContext,
+    this.patientInfo
   });
 
   factory Message.fromMap(Map<String, dynamic> map) {
