@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:health/data/database_helper.dart';
+import 'package:health/screens/loginPage.dart';
+import 'package:health/screens/patient_message_screen.dart';
 import 'package:health/utils/contacts_list_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart' as sql;
+import 'dart:async';
 
 class DoctorDashboard extends StatefulWidget {
-  const DoctorDashboard({super.key});
+  final String doctorId;
+  final String doctorName;
+  const DoctorDashboard({
+    required this.doctorId,
+    required this.doctorName,
+    super.key,
+  });
 
   @override
   State<DoctorDashboard> createState() => _DoctorDashboardState();
@@ -20,13 +29,34 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
   bool _isLoading = true;
   int _selectedTab = 0;
   String _doctorName = "Doctor";
+  int _unreadMessagesCount = 0;
+  Timer? _notificationTimer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadDoctorData();
+      _loadUnreadMessagesCount();
+      // Check for new messages every 30 seconds
+      _notificationTimer = Timer.periodic(
+        const Duration(seconds: 30),
+        (timer) => _loadUnreadMessagesCount(),
+      );
     });
+  }
+
+  Future<void> _loadUnreadMessagesCount() async {
+    try {
+      final count = await DatabaseHelper().getUnreadMessagesCount(
+        widget.doctorId,
+      );
+      if (mounted) {
+        setState(() => _unreadMessagesCount = count);
+      }
+    } catch (e) {
+      debugPrint('Error loading unread count: $e');
+    }
   }
 
   Future<void> _deleteSchedule(int scheduleId) async {
@@ -212,6 +242,12 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
   }
 
   @override
+  void dispose() {
+    _notificationTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -220,6 +256,36 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadDoctorData,
+          ),
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (context) =>
+                              PatientMessagesScreen(doctorId: widget.doctorId),
+                    ),
+                  ).then((_) => _loadUnreadMessagesCount());
+                },
+              ),
+              if (_unreadMessagesCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: CircleAvatar(
+                    radius: 10,
+                    backgroundColor: Colors.red,
+                    child: Text(
+                      '$_unreadMessagesCount',
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),
@@ -445,12 +511,10 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
   }
 
   Widget _buildProfileTab() {
-    // Return loading indicator if doctor data isn't loaded yet
     if (_doctor.isEmpty || _isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    // Helper function to safely get values with defaults
     String getDoctorValue(String key, [String defaultValue = 'Not provided']) {
       final value = _doctor[key];
       return value?.toString() ?? defaultValue;
@@ -500,9 +564,71 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
               child: const Text('Edit Profile'),
             ),
           ),
+          const SizedBox(height: 20),
+          Center(
+            child: TextButton(
+              onPressed: _confirmLogout,
+              child: const Text('Logout', style: TextStyle(color: Colors.red)),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _confirmLogout() async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Confirm Logout'),
+            content: const Text('Are you sure you want to logout?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text(
+                  'Logout',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+    );
+
+    if (shouldLogout == true) {
+      await _performLogout();
+    }
+  }
+
+  Future<void> _performLogout() async {
+    setState(() => _isLoading = true);
+
+    try {
+      // Clear shared preferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+
+      // Navigate to login screen
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => LoginForm()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Logout failed: ${e.toString()}')));
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Widget _buildProfileItem(String label, String value) {

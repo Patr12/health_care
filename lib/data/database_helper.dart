@@ -3,6 +3,7 @@ import 'package:health/models/user_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'dart:convert'; // Add this for jsonDecode
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -135,6 +136,10 @@ class DatabaseHelper {
         sender_id INTEGER,
         receiver_id INTEGER,
         message_text TEXT NOT NULL,
+        status TEXT NOT NULL, -- 'sent', 'delivered', 'read', 'failed'
+        urgency TEXT,
+        medical_context TEXT,
+        patient_info TEXT, -- JSON string
         is_read INTEGER DEFAULT 0,  -- 0 = unread, 1 = read
         sent_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (sender_id) REFERENCES users (id),
@@ -563,6 +568,23 @@ class DatabaseHelper {
     await db.insert('appointments', appointment);
   }
 
+  Future<int> getUserIdByEmail(String email) async {
+    final db = await database;
+    final result = await db.query(
+      'users',
+      columns: ['id'],
+      where: 'email = ?',
+      whereArgs: [email],
+      limit: 1,
+    );
+
+    if (result.isEmpty) {
+      throw Exception('User not found');
+    }
+
+    return result.first['id'] as int;
+  }
+
   Future<List<Map<String, dynamic>>> getUserAppointments(int userId) async {
     final db = await database;
     return await db.query(
@@ -735,27 +757,99 @@ class DatabaseHelper {
     }
   }
 
-  Future<List<Message>> getMessagesBetweenUsers(
-    String user1Id,
-    String user2Id,
-  ) async {
+  Future<int> getUnreadMessagesCount(String doctorId) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      '''
+    SELECT COUNT(*) as count 
+    FROM messages 
+    WHERE receiver_id = ? AND is_read = 0
+    ''',
+      [doctorId],
+    );
+    return result.first['count'] as int;
+  }
+
+  Future<List<Message>> getUnreadMessagesForDoctor(String doctorId) async {
     final db = await database;
     try {
-      final result = await db.query(
+      final List<Map<String, dynamic>> maps = await db.query(
         'messages',
-        where:
-            '(sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)',
-        whereArgs: [user1Id, user2Id, user2Id, user1Id],
-        orderBy: 'timestamp ASC',
+        where: 'receiver_id = ? AND is_read = 0',
+        whereArgs: [doctorId],
+        orderBy: 'timestamp DESC',
       );
-      return result.map((map) => Message.fromMap(map)).toList();
+
+      return List.generate(maps.length, (i) {
+        // Safely parse patient_info
+        Map<String, dynamic>? patientInfo;
+        try {
+          if (maps[i]['patient_info'] != null &&
+              maps[i]['patient_info'].toString().isNotEmpty) {
+            patientInfo = jsonDecode(maps[i]['patient_info'].toString());
+          }
+        } catch (e) {
+          print('Error parsing patient_info: $e');
+        }
+
+        return Message(
+          id: maps[i]['id'],
+          senderId: maps[i]['sender_id'].toString(),
+          receiverId: maps[i]['receiver_id'].toString(),
+          content: maps[i]['content'].toString(),
+          timestamp: DateTime.parse(maps[i]['timestamp'].toString()),
+          status: maps[i]['status'].toString(),
+          urgency: maps[i]['urgency']?.toString(),
+          medicalContext: maps[i]['medical_context']?.toString(),
+          patientInfo: patientInfo,
+          isRead: maps[i]['is_read'] == 1,
+        );
+      });
     } catch (e) {
-      print('Error getting messages: $e');
+      print('Error getting unread messages: $e');
       return [];
     }
   }
 
-  Future<List<Object>> getConversationsForUser(int userId) async {
+  // Ongeza hii kwenye DatabaseHelper
+  Future<List<Message>> getMessagesBetweenUsers(
+    String userId1,
+    String userId2,
+  ) async {
+    final db = await database;
+    try {
+      final List<Map<String, dynamic>> maps = await db.query(
+        'messages',
+        where:
+            '(sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)',
+        whereArgs: [userId1, userId2, userId2, userId1],
+        orderBy: 'timestamp ASC',
+      );
+
+      return List.generate(maps.length, (i) {
+        return Message(
+          id: maps[i]['id'],
+          senderId: maps[i]['sender_id'].toString(),
+          receiverId: maps[i]['receiver_id'].toString(),
+          content: maps[i]['content'].toString(),
+          timestamp: DateTime.parse(maps[i]['timestamp'].toString()),
+          status: maps[i]['status'].toString(),
+          urgency: maps[i]['urgency']?.toString(),
+          medicalContext: maps[i]['medical_context']?.toString(),
+          patientInfo:
+              maps[i]['patient_info'] != null
+                  ? jsonDecode(maps[i]['patient_info'].toString())
+                  : null,
+          isRead: maps[i]['is_read'] == 1,
+        );
+      });
+    } catch (e) {
+      print('Error getting messages between users: $e');
+      return [];
+    }
+  }
+
+  Future<List<Message>> getConversationsForUser(String userId) async {
     final db = await database;
     try {
       final result = await db.rawQuery(
@@ -771,12 +865,30 @@ class DatabaseHelper {
             ELSE sender_id 
           END
       ) lm ON m.id = lm.last_message_id
-      ORDER BY m.sent_at DESC
-    ''',
+      ORDER BY m.timestamp DESC
+      ''',
         [userId, userId, userId],
       );
 
-      return result.map((map) => Message.fromMap(map)).toList();
+      return result
+          .map(
+            (map) => Message(
+              id: map['id'] as int,
+              senderId: map['sender_id'].toString(),
+              receiverId: map['receiver_id'].toString(),
+              content: map['content'].toString(),
+              timestamp: DateTime.parse(map['timestamp'].toString()),
+              status: map['status'].toString(),
+              urgency: map['urgency']?.toString(),
+              medicalContext: map['medical_context']?.toString(),
+              patientInfo:
+                  map['patient_info'] != null
+                      ? jsonDecode(map['patient_info'].toString())
+                      : null,
+              isRead: map['is_read'] == 1,
+            ),
+          )
+          .toList();
     } catch (e) {
       print('Error getting conversations for user: $e');
       return [];
@@ -788,7 +900,7 @@ class DatabaseHelper {
     try {
       return await db.update(
         'messages',
-        {'is_read': 1},
+        {'is_read': 1, 'status': 'read'},
         where: 'sender_id = ? AND receiver_id = ? AND is_read = 0',
         whereArgs: [senderId, receiverId],
       );

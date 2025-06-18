@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:health/data/database_helper.dart';
 import 'package:health/screens/doctorDetails.dart';
@@ -16,7 +18,8 @@ class _PatientDashboardState extends State<PatientDashboard> {
   List<Map<String, dynamic>> doctors = [];
   List<Map<String, dynamic>> appointments = [];
   bool _isLoading = true;
-
+ int _unreadMessagesCount = 0;
+  Timer? _notificationTimer;
   String _searchQuery = '';
   int? _userId;
   final DatabaseHelper dbHelper = DatabaseHelper();

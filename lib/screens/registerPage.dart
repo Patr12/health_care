@@ -29,78 +29,82 @@ class _RegisterPageState extends State<RegisterPage> {
   String? _specialty;
 
   Future<void> _register() async {
-    if (!_formKey.currentState!.validate()) return;
+  if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+  setState(() => _isLoading = true);
 
-    try {
-      final userData = {
-        'full_name': nameController.text,
-        'email': emailController.text,
-        'password': passwordController.text,
-        'phone_number': phoneController.text,
-        'date_of_birth': '', // Add date picker later
-        'blood_type': '', // Add dropdown later
-        'role': _selectedRole,
+  try {
+    final userData = {
+      'full_name': nameController.text,
+      'email': emailController.text,
+      'password': passwordController.text,
+      'phone_number': phoneController.text,
+      'date_of_birth': '', // Add date picker later
+      'blood_type': '', // Add dropdown later
+      'role': _selectedRole,
+    };
+
+    // Handle different registration flows based on role
+    if (_selectedRole == DatabaseHelper.ROLE_DOCTOR) {
+      if (_licenseNumber == null || _licenseNumber!.isEmpty) {
+        throw Exception('License number is required for doctors');
+      }
+      if (_specialty == null || _specialty!.isEmpty) {
+        throw Exception('Specialty is required for doctors');
+      }
+
+      final doctorProfile = {
+        'specialty': _specialty!,
+        'license_number': _licenseNumber!,
+        'hospital': '', // Can be added later
+        'experience_years': 0, // Can be added later
+        'consultation_fee': 0.0, // Can be added later
       };
 
-      // Handle different registration flows based on role
-      if (_selectedRole == DatabaseHelper.ROLE_DOCTOR) {
-        if (_licenseNumber == null || _licenseNumber!.isEmpty) {
-          throw Exception('License number is required for doctors');
-        }
-        if (_specialty == null || _specialty!.isEmpty) {
-          throw Exception('Specialty is required for doctors');
-        }
+      await _dbHelper.registerDoctor(userData, doctorProfile);
+    } else {
+      await _dbHelper.registerUser(userData, role: _selectedRole);
+    }
 
-        final doctorProfile = {
-          'specialty': _specialty!,
-          'license_number': _licenseNumber!,
-          'hospital': '', // Can be added later
-          'experience_years': 0, // Can be added later
-          'consultation_fee': 0.0, // Can be added later
-        };
+    if (!mounted) return;
 
-        await _dbHelper.registerDoctor(userData, doctorProfile);
-      } else {
-        await _dbHelper.registerUser(userData, role: _selectedRole);
-      }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("✅ Registered successfully!")),
+    );
 
-      if (!mounted) return;
+    // Navigate to appropriate dashboard based on role
+    Widget destination;
+    switch (_selectedRole) {
+      case DatabaseHelper.ROLE_DOCTOR:
+        final userId = await _dbHelper.getUserIdByEmail(emailController.text);
+        destination = DoctorDashboard(
+          doctorId: userId.toString(),
+          doctorName: nameController.text,
+        );
+        break;
+      case DatabaseHelper.ROLE_ADMIN:
+        destination = const AdminDashboard();
+        break;
+      case DatabaseHelper.ROLE_PATIENT:
+      default:
+        destination = HomeScreen();
+    }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("✅ Registered successfully!")),
-      );
-
-      // Navigate to appropriate dashboard based on role
-      Widget destination;
-      switch (_selectedRole) {
-        case DatabaseHelper.ROLE_DOCTOR:
-          destination = const DoctorDashboard();
-          break;
-        case DatabaseHelper.ROLE_ADMIN:
-          destination = const AdminDashboard();
-          break;
-        case DatabaseHelper.ROLE_PATIENT:
-        default:
-          destination = HomeScreen();
-      }
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => destination),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("❌ Error: ${e.toString()}")));
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => destination),
+    );
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("❌ Error: ${e.toString()}")),
+    );
+  } finally {
+    if (mounted) {
+      setState(() => _isLoading = false);
     }
   }
+}
 
   Widget _buildRoleSelector() {
     return Column(

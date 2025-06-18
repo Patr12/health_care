@@ -8,11 +8,15 @@ class PatientDoctorChatPage extends StatefulWidget {
   final String currentUserId;
   final String currentUserName;
   final String userRole;
+  final String? selectedPatientId;
+  final String? selectedPatientName;
 
   const PatientDoctorChatPage({
     required this.currentUserId,
     required this.currentUserName,
     required this.userRole,
+    this.selectedPatientId,
+    this.selectedPatientName,
     super.key,
   });
 
@@ -34,7 +38,16 @@ class _PatientDoctorChatPageState extends State<PatientDoctorChatPage> {
   @override
   void initState() {
     super.initState();
-    _loadAvailableDoctors();
+    if (widget.selectedPatientId != null) {
+      _selectedDoctor = User(
+        id: widget.selectedPatientId!,
+        name: widget.selectedPatientName ?? 'patient',
+        role: 'patient',
+      );
+      _loadMessages();
+    } else {
+      _loadAvailableDoctors();
+    }
   }
 
   @override
@@ -133,11 +146,14 @@ class _PatientDoctorChatPageState extends State<PatientDoctorChatPage> {
         _selectedDoctor!.id,
       );
 
-      // Mark messages as read if this is the doctor viewing
-      if (widget.userRole == 'doctor') {
+      // Mark messages as read if this is the recipient
+      if ((widget.userRole == 'doctor' &&
+              messages.any((m) => m.senderId != widget.currentUserId)) ||
+          (widget.userRole == 'patient' &&
+              messages.any((m) => m.senderId != widget.currentUserId))) {
         await DatabaseHelper().markMessagesAsRead(
-          _selectedDoctor!.id,
           widget.currentUserId,
+          _selectedDoctor!.id,
         );
       }
 
@@ -155,9 +171,8 @@ class _PatientDoctorChatPageState extends State<PatientDoctorChatPage> {
   }
 
   Future<void> _sendMessage() async {
-    if (_messageController.text.trim().isEmpty || _selectedDoctor == null) {
+    if (_messageController.text.trim().isEmpty || _selectedDoctor == null)
       return;
-    }
     if (_isSending) return;
 
     final content = _messageController.text.trim();
@@ -178,7 +193,7 @@ class _PatientDoctorChatPageState extends State<PatientDoctorChatPage> {
       receiverId: _selectedDoctor!.id,
       content: content,
       timestamp: DateTime.now(),
-      status: 'pending',
+      status: 'sent', // Changed from 'pending' to 'sent'
       urgency: _selectedUrgency,
       medicalContext: _selectedContext,
       patientInfo: patientInfo,
@@ -190,14 +205,18 @@ class _PatientDoctorChatPageState extends State<PatientDoctorChatPage> {
     try {
       final messageId = await DatabaseHelper().insertMessage(newMessage);
 
+      // Update the message with the ID from database
       setState(() {
         _messages =
             _messages.map((msg) {
               return msg.id == newMessage.id
-                  ? msg.copyWith(id: messageId, status: 'sent')
+                  ? msg.copyWith(id: messageId)
                   : msg;
             }).toList();
       });
+
+      // Reload messages to ensure sync
+      await _loadMessages();
     } catch (e) {
       debugPrint('Error sending message: $e');
       setState(() {
@@ -215,10 +234,9 @@ class _PatientDoctorChatPageState extends State<PatientDoctorChatPage> {
   }
 
   Widget _buildMedicalMessageBubble(Message message) {
-    final isPatient = widget.userRole == 'patient';
     final isFromMe = message.senderId == widget.currentUserId;
     final showPatientInfo =
-        message.patientInfo != null && !isFromMe && !isPatient;
+        message.patientInfo != null && !isFromMe && widget.userRole == 'doctor';
 
     return Column(
       crossAxisAlignment:
@@ -226,97 +244,85 @@ class _PatientDoctorChatPageState extends State<PatientDoctorChatPage> {
       children: [
         if (showPatientInfo) _buildPatientInfoCard(message.patientInfo!),
 
-        if (message.urgency != null && !isPatient)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Chip(
-              label: Text(
-                'URGENCY: ${message.urgency!.toUpperCase()}',
-                style: const TextStyle(fontSize: 10),
-              ),
-              backgroundColor: _getUrgencyColor(message.urgency!),
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-            ),
-          ),
-
-        Row(
-          mainAxisAlignment:
-              isFromMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            if (!isFromMe) ...[
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: Colors.blue[100],
-                child: Text(
-                  _selectedDoctor!.name.substring(0, 1),
-                  style: const TextStyle(color: Colors.blue),
+        Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            mainAxisAlignment:
+                isFromMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (!isFromMe) ...[
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: Colors.blue[100],
+                  child: Text(
+                    _selectedDoctor!.name.substring(0, 1),
+                    style: const TextStyle(color: Colors.blue),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-            ],
+                const SizedBox(width: 8),
+              ],
 
-            Flexible(
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color:
-                      isFromMe
-                          ? (message.status == 'failed'
-                              ? Colors.red[100]
-                              : Colors.blue[100])
-                          : Colors.grey[200],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment:
-                      isFromMe
-                          ? CrossAxisAlignment.end
-                          : CrossAxisAlignment.start,
-                  children: [
-                    if (!isFromMe)
-                      Text(
-                        _selectedDoctor!.name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          color: Colors.blue,
-                        ),
-                      ),
-                    Text(message.content),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isFromMe ? Colors.blue[100] : Colors.grey[200],
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(12),
+                      topRight: const Radius.circular(12),
+                      bottomLeft: Radius.circular(isFromMe ? 12 : 0),
+                      bottomRight: Radius.circular(isFromMe ? 0 : 12),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment:
+                        isFromMe
+                            ? CrossAxisAlignment.end
+                            : CrossAxisAlignment.start,
+                    children: [
+                      if (!isFromMe)
                         Text(
-                          DateFormat('hh:mm a').format(message.timestamp),
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey,
+                          _selectedDoctor!.name,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: Colors.blue[700],
                           ),
                         ),
-                        if (isFromMe && message.status == 'failed')
-                          const Padding(
-                            padding: EdgeInsets.only(left: 4.0),
-                            child: Icon(
-                              Icons.error,
-                              size: 14,
-                              color: Colors.red,
+                      Text(message.content),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            DateFormat('hh:mm a').format(message.timestamp),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey[600],
                             ),
                           ),
-                      ],
-                    ),
-                  ],
+                          if (isFromMe) ...[
+                            const SizedBox(width: 4),
+                            Icon(
+                              message.status == 'read'
+                                  ? Icons.done_all
+                                  : Icons.done,
+                              size: 14,
+                              color:
+                                  message.status == 'read'
+                                      ? Colors.blue
+                                      : Colors.grey,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-
-            if (isFromMe && message.status == 'failed')
-              IconButton(
-                icon: const Icon(Icons.refresh, size: 20),
-                onPressed: () => _retryMessage(message),
-              ),
-          ],
+            ],
+          ),
         ),
       ],
     );

@@ -63,7 +63,10 @@ class _LoginFormState extends State<LoginForm> {
             destination = const AdminDashboard();
             break;
           case DatabaseHelper.ROLE_DOCTOR:
-            destination = const DoctorDashboard();
+            destination = DoctorDashboard(
+              doctorId: user['id'].toString(),
+              doctorName: user['full_name'],
+            );
             break;
           case DatabaseHelper.ROLE_PATIENT:
           default:
