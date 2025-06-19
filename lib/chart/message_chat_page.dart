@@ -44,7 +44,7 @@ class _PatientDoctorChatPageState extends State<PatientDoctorChatPage> {
         name: widget.selectedPatientName ?? 'patient',
         role: 'patient',
       );
-      _loadMessages();
+      // _loadMessages();
     } else {
       _loadAvailableDoctors();
     }
@@ -131,44 +131,44 @@ class _PatientDoctorChatPageState extends State<PatientDoctorChatPage> {
       );
 
       setState(() => _selectedDoctor = selectedDoctor);
-      await _loadMessages();
+      // await _loadMessages();
     }
   }
 
-  Future<void> _loadMessages() async {
-    if (_selectedDoctor == null) return;
+  // Future<void> _loadMessages() async {
+  //   if (_selectedDoctor == null) return;
 
-    setState(() => _isLoading = true);
+  //   setState(() => _isLoading = true);
 
-    try {
-      final messages = await DatabaseHelper().getMessagesBetweenUsers(
-        widget.currentUserId,
-        _selectedDoctor!.id,
-      );
+  //   try {
+  //     final messages = await DatabaseHelper().getMessagesBetweenUsers(
+  //       widget.currentUserId,
+  //       _selectedDoctor!.id,
+  //     );
 
-      // Mark messages as read if this is the recipient
-      if ((widget.userRole == 'doctor' &&
-              messages.any((m) => m.senderId != widget.currentUserId)) ||
-          (widget.userRole == 'patient' &&
-              messages.any((m) => m.senderId != widget.currentUserId))) {
-        await DatabaseHelper().markMessagesAsRead(
-          widget.currentUserId,
-          _selectedDoctor!.id,
-        );
-      }
+  //     // Mark messages as read if this is the recipient
+  //     if ((widget.userRole == 'doctor' &&
+  //             messages.any((m) => m.senderId != widget.currentUserId)) ||
+  //         (widget.userRole == 'patient' &&
+  //             messages.any((m) => m.senderId != widget.currentUserId))) {
+  //       await DatabaseHelper().markMessagesAsRead(
+  //         widget.currentUserId,
+  //         _selectedDoctor!.id,
+  //       );
+  //     }
 
-      setState(() {
-        _messages = messages;
-        _isLoading = false;
-      });
+  //     setState(() {
+  //       _messages = messages;
+  //       _isLoading = false;
+  //     });
 
-      _scrollToBottom();
-    } catch (e) {
-      debugPrint('Error loading messages: $e');
-      setState(() => _isLoading = false);
-      _showErrorSnackbar('Failed to load messages');
-    }
-  }
+  //     _scrollToBottom();
+  //   } catch (e) {
+  //     debugPrint('Error loading messages: $e');
+  //     setState(() => _isLoading = false);
+  //     _showErrorSnackbar('Failed to load messages');
+  //   }
+  // }
 
   Future<void> _sendMessage() async {
     if (_messageController.text.trim().isEmpty || _selectedDoctor == null)
@@ -202,35 +202,35 @@ class _PatientDoctorChatPageState extends State<PatientDoctorChatPage> {
     setState(() => _messages = [..._messages, newMessage]);
     _scrollToBottom();
 
-    try {
-      final messageId = await DatabaseHelper().insertMessage(newMessage);
+    // try {
+    //   final messageId = await DatabaseHelper().insertMessage(newMessage);
 
-      // Update the message with the ID from database
-      setState(() {
-        _messages =
-            _messages.map((msg) {
-              return msg.id == newMessage.id
-                  ? msg.copyWith(id: messageId)
-                  : msg;
-            }).toList();
-      });
+    //   // Update the message with the ID from database
+    //   setState(() {
+    //     _messages =
+    //         _messages.map((msg) {
+    //           return msg.id == newMessage.id
+    //               ? msg.copyWith(id: messageId)
+    //               : msg;
+    //         }).toList();
+    //   });
 
-      // Reload messages to ensure sync
-      await _loadMessages();
-    } catch (e) {
-      debugPrint('Error sending message: $e');
-      setState(() {
-        _messages =
-            _messages.map((msg) {
-              return msg.id == newMessage.id
-                  ? msg.copyWith(status: 'failed')
-                  : msg;
-            }).toList();
-      });
-      _showErrorSnackbar('Failed to send message');
-    } finally {
-      setState(() => _isSending = false);
-    }
+    //   // Reload messages to ensure sync
+    //   await _loadMessages();
+    // } catch (e) {
+    //   debugPrint('Error sending message: $e');
+    //   setState(() {
+    //     _messages =
+    //         _messages.map((msg) {
+    //           return msg.id == newMessage.id
+    //               ? msg.copyWith(status: 'failed')
+    //               : msg;
+    //         }).toList();
+    //   });
+    //   _showErrorSnackbar('Failed to send message');
+    // } finally {
+    //   setState(() => _isSending = false);
+    // }
   }
 
   Widget _buildMedicalMessageBubble(Message message) {
@@ -565,16 +565,16 @@ class _PatientDoctorChatPageState extends State<PatientDoctorChatPage> {
     );
   }
 
-  Future<void> _retryMessage(Message message) async {
-    setState(() {
-      _messages =
-          _messages.map((msg) {
-            return msg.id == message.id ? msg.copyWith(status: 'pending') : msg;
-          }).toList();
-    });
+  // Future<void> _retryMessage(Message message) async {
+  //   setState(() {
+  //     _messages =
+  //         _messages.map((msg) {
+  //           return msg.id == message.id ? msg.copyWith(status: 'pending') : msg;
+  //         }).toList();
+  //   });
 
-    await _sendMessage();
-  }
+  //   await _sendMessage();
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -601,7 +601,7 @@ class _PatientDoctorChatPageState extends State<PatientDoctorChatPage> {
           if (_selectedDoctor != null)
             IconButton(
               icon: const Icon(Icons.refresh),
-              onPressed: _loadMessages,
+              onPressed: (){},
               tooltip: 'Refresh messages',
             ),
         ],

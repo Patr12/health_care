@@ -131,19 +131,17 @@ class DatabaseHelper {
 
   Future<void> _createMessageTable(Database db) async {
     await db.execute('''
-      CREATE TABLE messages (
+      CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        sender_id INTEGER,
-        receiver_id INTEGER,
-        message_text TEXT NOT NULL,
-        status TEXT NOT NULL, -- 'sent', 'delivered', 'read', 'failed'
+        sender_id TEXT NOT NULL,
+        receiver_id TEXT NOT NULL,
+        content TEXT NOT NULL,
+        status TEXT DEFAULT 'sent',
+        is_read INTEGER DEFAULT 0,
+        timestamp TEXT NOT NULL,
         urgency TEXT,
         medical_context TEXT,
-        patient_info TEXT, -- JSON string
-        is_read INTEGER DEFAULT 0,  -- 0 = unread, 1 = read
-        sent_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (sender_id) REFERENCES users (id),
-        FOREIGN KEY (receiver_id) REFERENCES users (id)
+        patient_info TEXT
       )
     ''');
   }
@@ -420,23 +418,37 @@ class DatabaseHelper {
   // Rekebisha getDoctors()
   Future<List<Map<String, dynamic>>> getDoctors() async {
     final db = await database;
-    final List<Map<String, dynamic>> doctors = await db.rawQuery(
-      '''
-    SELECT 
-      users.id,
-      users.full_name,
-      users.phone_number AS user_phone,
-      doctor_profiles.phone_number AS doctor_phone,
-      doctor_profiles.specialty,
-      doctor_profiles.hospital,
-      doctor_profiles.experience_years
-    FROM users
-    JOIN doctor_profiles ON users.id = doctor_profiles.user_id
-    WHERE users.role = ?
+    try {
+      final List<Map<String, dynamic>> doctors = await db.rawQuery(
+        '''
+      SELECT 
+        users.id,
+        users.full_name,
+        users.phone_number AS user_phone,
+        doctor_profiles.phone_number AS doctor_phone,
+        doctor_profiles.specialty,
+        doctor_profiles.hospital,
+        doctor_profiles.experience_years
+      FROM users
+      JOIN doctor_profiles ON users.id = doctor_profiles.user_id
+      WHERE users.role = ?
     ''',
-      [ROLE_DOCTOR],
-    );
-    return doctors;
+        ['doctor'],
+      );
+
+      return doctors.map((doctor) {
+        return {
+          'id': doctor['id'].toString(), // Ensure ID is string
+          'full_name': doctor['full_name'],
+          'specialty': doctor['specialty'],
+          'doctor': true,
+          // Include other fields you need
+        };
+      }).toList();
+    } catch (e) {
+      print('Error getting doctors: $e');
+      return [];
+    }
   }
 
   // Rekebisha getDoctorById()
@@ -743,12 +755,14 @@ class DatabaseHelper {
 
   // Add these to your DatabaseHelper class
 
-  Future<int> insertMessage(Message message) async {
+  // In your DatabaseHelper class
+  // In DatabaseHelper
+  Future<int> insertMessage(Map<String, dynamic> messageData) async {
     final db = await database;
     try {
       return await db.insert(
         'messages',
-        message.toMap(),
+        messageData,
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     } catch (e) {
@@ -809,7 +823,40 @@ class DatabaseHelper {
       print('Error getting unread messages: $e');
       return [];
     }
+  }// Add these to your DatabaseHelper class
+
+Future<List<Map<String, dynamic>>> getDoctorMessages(String doctorId) async {
+  final db = await database;
+  try {
+    return await db.rawQuery('''
+      SELECT 
+        m.*,
+        u.full_name as sender_name
+      FROM messages m
+      JOIN users u ON m.sender_id = u.id
+      WHERE m.receiver_id = ?
+      ORDER BY m.timestamp DESC
+    ''', [doctorId]);
+  } catch (e) {
+    print('Error getting doctor messages: $e');
+    return [];
   }
+}
+
+Future<int> markDoctorMessagesAsRead(String doctorId) async {
+  final db = await database;
+  try {
+    return await db.update(
+      'messages',
+      {'is_read': 1},
+      where: 'receiver_id = ? AND is_read = 0',
+      whereArgs: [doctorId],
+    );
+  } catch (e) {
+    print('Error marking messages as read: $e');
+    return 0;
+  }
+}
 
   // Ongeza hii kwenye DatabaseHelper
   Future<List<Message>> getMessagesBetweenUsers(
@@ -895,6 +942,21 @@ class DatabaseHelper {
     }
   }
 
+  Future<int> markMessagesAsReads(int messageId) async {
+    final db = await database;
+    try {
+      return await db.update(
+        'messages',
+        {'is_read': 1, 'status': 'read'},
+        where: 'id = ?',
+        whereArgs: [messageId],
+      );
+    } catch (e) {
+      print('Error marking messages as read: $e');
+      return 0;
+    }
+  }
+
   Future<int> markMessagesAsRead(String senderId, String receiverId) async {
     final db = await database;
     try {
@@ -910,31 +972,63 @@ class DatabaseHelper {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getRecentConversations(int userId) async {
-    final db = await database;
-    try {
-      return await db.rawQuery(
-        '''
+Future<List<Map<String, dynamic>>> getRecentConversations(String userId) async {
+  final db = await database;
+  try {
+    final conversations = await db.rawQuery(
+      '''
       SELECT 
         u.id,
         u.full_name,
-        m.message_text as last_message,
-        m.sent_at,
-        COUNT(CASE WHEN m.is_read = 0 AND m.sender_id != ? THEN 1 END) as unread_count
+        u.doctor,
+        m.content AS last_message,
+        m.timestamp AS sent_at
       FROM users u
       JOIN messages m ON (
-        (m.sender_id = u.id AND m.receiver_id = ?) OR 
-        (m.receiver_id = u.id AND m.sender_id = ?)
+        (m.sender_id = ? AND m.receiver_id = u.id) OR
+        (m.receiver_id = ? AND m.sender_id = u.id)
       )
+      WHERE u.id != ?
       GROUP BY u.id
-      ORDER BY m.sent_at DESC
-    ''',
-        [userId, userId, userId],
-      );
-    } catch (e) {
-      print('Error getting recent conversations: $e');
-      return [];
-    }
+      ORDER BY MAX(m.timestamp) DESC
+      ''',
+      [userId, userId, userId],
+    );
+
+    return conversations.map((conv) {
+      return {
+        'id': conv['id']?.toString() ?? '', // Safely convert to string
+        'full_name': conv['full_name']?.toString() ?? 'Mwenyeji',
+        'doctor': (conv['doctor'] == 1 || conv['doctor'] == true),
+        'last_message': conv['last_message']?.toString() ?? '',
+        'sent_at': conv['sent_at']?.toString(),
+      };
+    }).toList();
+  } catch (e) {
+    print('Error getting conversations: $e');
+    return [];
+  }
+}
+
+  Future<List<Map<String, dynamic>>> getUserConversations(int userId) async {
+    final db = await database;
+    return await db.rawQuery(
+      '''
+    SELECT 
+      u.id, 
+      u.full_name,
+      m.message_text as last_message,
+      m.sent_at,
+      (SELECT COUNT(*) FROM messages 
+       WHERE receiver_id = ? AND sender_id = u.id AND is_read = 0) as unread_count
+    FROM users u
+    JOIN messages m ON u.id = m.sender_id OR u.id = m.receiver_id
+    WHERE ? IN (m.sender_id, m.receiver_id) AND u.id != ?
+    GROUP BY u.id
+    ORDER BY m.sent_at DESC
+  ''',
+      [userId, userId, userId],
+    );
   }
 
   Future<void> saveFcmToken(String userId, String token) async {

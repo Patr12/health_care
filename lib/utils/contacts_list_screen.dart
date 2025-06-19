@@ -14,7 +14,7 @@ class _ContactsListScreenState extends State<ContactsListScreen> {
   final DatabaseHelper _dbHelper = DatabaseHelper();
   List<Map<String, dynamic>> _contacts = [];
   bool _isLoading = true;
-  late int _currentUserId;
+  late String _currentUserId;
 
   @override
   void initState() {
@@ -26,7 +26,7 @@ class _ContactsListScreenState extends State<ContactsListScreen> {
     setState(() => _isLoading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      _currentUserId = prefs.getInt('userId') ?? 0;
+      _currentUserId = (prefs.getInt('userId') ?? 0) as String;
 
       // Get recent conversations
       final conversations = await _dbHelper.getRecentConversations(

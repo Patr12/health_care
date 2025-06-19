@@ -1,3 +1,6 @@
+// models/message.dart
+import 'dart:convert';
+
 class Message {
   final int id;
   final String senderId;
@@ -10,7 +13,6 @@ class Message {
   final String? medicalContext;
   final Map<String, dynamic>? patientInfo;
 
-
   Message({
     required this.id,
     required this.senderId,
@@ -19,9 +21,9 @@ class Message {
     required this.timestamp,
     this.status = 'sent',
     this.isRead = false,
-     this.urgency,
+    this.urgency,
     this.medicalContext,
-    this.patientInfo
+    this.patientInfo,
   });
 
   factory Message.fromMap(Map<String, dynamic> map) {
@@ -33,6 +35,11 @@ class Message {
       timestamp: DateTime.parse(map['timestamp'].toString()),
       status: map['status']?.toString() ?? 'sent',
       isRead: map['is_read'] == 1,
+      urgency: map['urgency'],
+      medicalContext: map['medical_context'],
+      patientInfo: map['patient_info'] != null 
+          ? jsonDecode(map['patient_info'].toString())
+          : null,
     );
   }
 
@@ -45,32 +52,9 @@ class Message {
       'timestamp': timestamp.toIso8601String(),
       'status': status,
       'is_read': isRead ? 1 : 0,
+      'urgency': urgency,
+      'medical_context': medicalContext,
+      'patient_info': patientInfo != null ? jsonEncode(patientInfo) : null,
     };
-  }
-
-  Message copyWith({
-    int? id,
-    String? senderId,
-    String? receiverId,
-    String? content,
-    DateTime? timestamp,
-    String? status,
-    bool? isRead,
-    String? urgency,
-    String? medicalContext,
-    Map<String, dynamic>? patientInfo,
-  }) {
-    return Message(
-      id: id ?? this.id,
-      senderId: senderId ?? this.senderId,
-      receiverId: receiverId ?? this.receiverId,
-      content: content ?? this.content,
-      timestamp: timestamp ?? this.timestamp,
-      status: status ?? this.status,
-      isRead: isRead ?? this.isRead,
-       urgency: urgency ?? this.urgency,
-      medicalContext: medicalContext ?? this.medicalContext,
-      patientInfo: patientInfo ?? this.patientInfo
-    );
   }
 }

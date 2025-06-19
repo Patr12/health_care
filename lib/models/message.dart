@@ -1,10 +1,12 @@
-// First, create a Message model class (add this to your models folder)
+import 'dart:convert';
+
 class Message {
   final int id;
-  final int senderId;
-  final int receiverId;
-  final String messageText;
-  final DateTime sentAt;
+  final String senderId;
+  final String receiverId;
+  final String content;
+  final DateTime timestamp;
+  final String status;
   final bool isRead;
   final String? urgency;
   final String? medicalContext;
@@ -14,22 +16,29 @@ class Message {
     required this.id,
     required this.senderId,
     required this.receiverId,
-    required this.messageText,
-    required this.sentAt,
+    required this.content,
+    required this.timestamp,
+    this.status = 'sent',
     this.isRead = false,
-     this.urgency,
+    this.urgency,
     this.medicalContext,
-    this.patientInfo
+    this.patientInfo,
   });
 
   factory Message.fromMap(Map<String, dynamic> map) {
     return Message(
-      id: map['id'],
-      senderId: map['sender_id'],
-      receiverId: map['receiver_id'],
-      messageText: map['message_text'],
-      sentAt: DateTime.parse(map['sent_at']),
+      id: map['id'] as int,
+      senderId: map['sender_id'].toString(),
+      receiverId: map['receiver_id'].toString(),
+      content: map['content'].toString(),
+      timestamp: DateTime.parse(map['timestamp'].toString()),
+      status: map['status']?.toString() ?? 'sent',
       isRead: map['is_read'] == 1,
+      urgency: map['urgency']?.toString(),
+      medicalContext: map['medical_context']?.toString(),
+      patientInfo: map['patient_info'] != null
+          ? jsonDecode(map['patient_info'].toString())
+          : null,
     );
   }
 
@@ -38,13 +47,13 @@ class Message {
       'id': id,
       'sender_id': senderId,
       'receiver_id': receiverId,
-      'message_text': messageText,
-      'sent_at': sentAt.toIso8601String(),
+      'content': content,
+      'timestamp': timestamp.toIso8601String(),
+      'status': status,
       'is_read': isRead ? 1 : 0,
+      'urgency': urgency,
+      'medical_context': medicalContext,
+      'patient_info': patientInfo != null ? jsonEncode(patientInfo) : null,
     };
-  }
-
-  static List<Message> fromList(List<Map<String, dynamic>> maps) {
-    return maps.map((map) => Message.fromMap(map)).toList();
   }
 }

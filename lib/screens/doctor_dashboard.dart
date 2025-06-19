@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:health/chart/converstions_page.dart';
+import 'package:health/chart/doctor_message_screen.dart';
 import 'package:health/data/database_helper.dart';
 import 'package:health/screens/loginPage.dart';
-import 'package:health/screens/patient_message_screen.dart';
 import 'package:health/utils/contacts_list_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -267,9 +268,12 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                     MaterialPageRoute(
                       builder:
                           (context) =>
-                              PatientMessagesScreen(doctorId: widget.doctorId),
+                              DoctorMessagesScreen(doctorId: widget.doctorId),
                     ),
-                  ).then((_) => _loadUnreadMessagesCount());
+                  ).then((_) {
+                    // Refresh unread count after returning
+                    _loadUnreadMessagesCount();
+                  });
                 },
               ),
               if (_unreadMessagesCount > 0)
@@ -311,13 +315,11 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
       ),
       // Add this to your Scaffold's floatingActionButton
       floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final prefs = await SharedPreferences.getInstance();
-          final userId = prefs.getInt('userId');
-          debugPrint('Current user ID: $userId');
-          debugPrint('Current schedules: $_schedules');
-          final dbSchedules = await _dbHelper.getDoctorSchedules(userId ?? 0);
-          debugPrint('DB schedules: $dbSchedules');
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => ConversationsPage()),
+          );
         },
         child: const Icon(Icons.bug_report),
       ),
@@ -331,7 +333,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
       case 1:
         return _buildScheduleTab();
       case 2:
-        return ContactsListScreen();
+        return DoctorMessagesScreen(doctorId: widget.doctorId);
       case 3:
         return _buildProfileTab();
       default:
